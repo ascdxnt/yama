@@ -45,8 +45,8 @@ export function HeroSection() {
   }, [flyerCount, next]);
 
   return (
-    <section id="home-hero" className="noise-overlay relative overflow-hidden bg-primary-900">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700" />
+    <section id="home-hero" className="noise-overlay relative overflow-hidden bg-transparent pt-[65px] lg:bg-primary-900 lg:pt-0">
+      <div className="absolute inset-0 hidden bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 lg:block" />
 
       <div className="absolute inset-0 hidden lg:block">
         <div
@@ -59,27 +59,18 @@ export function HeroSection() {
         <div className="absolute inset-y-0 right-0 w-[70%] bg-[linear-gradient(110deg,rgba(3,18,46,0.34)_0%,rgba(3,23,58,0.16)_38%,rgba(3,17,42,0.3)_100%)] [clip-path:polygon(30%_0,100%_0,100%_100%,22%_100%)]" />
       </div>
 
-      <div className="absolute inset-0 lg:hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `linear-gradient(140deg, rgba(3,15,42,0.78) 0%, rgba(3,17,45,0.46) 48%, rgba(3,14,36,0.72) 100%), url('${BACKGROUND_IMAGE_URL}')`,
-          }}
-        />
-      </div>
-
       <div
-        className="absolute -left-[15%] -top-[10%] h-[70vh] w-[70vh] rounded-full opacity-25 blur-[120px]"
+        className="absolute -left-[15%] -top-[10%] hidden h-[70vh] w-[70vh] rounded-full opacity-25 blur-[120px] lg:block"
         style={{ background: 'radial-gradient(circle, var(--color-primary-400), transparent 70%)' }}
         aria-hidden="true"
       />
       <div
-        className="absolute -bottom-[5%] right-[5%] h-[50vh] w-[50vh] rounded-full opacity-15 blur-[100px]"
+        className="absolute -bottom-[5%] right-[5%] hidden h-[50vh] w-[50vh] rounded-full opacity-15 blur-[100px] lg:block"
         style={{ background: 'radial-gradient(circle, var(--color-secondary-400), transparent 70%)' }}
         aria-hidden="true"
       />
 
-      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-2 lg:gap-10 lg:px-8 lg:py-28">
+      <div className="relative z-10 mx-auto hidden max-w-7xl grid-cols-1 items-center gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid lg:grid-cols-2 lg:gap-10 lg:px-8 lg:py-28">
         <Reveal className="lg:order-1 lg:justify-self-start lg:-translate-x-8">
           <span className="inline-block rounded-full bg-secondary-400/16 px-3 py-1 text-[11px] font-semibold tracking-[0.15em] text-secondary-100 [text-shadow:0_4px_18px_rgba(0,0,0,0.5)]">
             Distribuidor autorizado Yamaha
@@ -87,7 +78,7 @@ export function HeroSection() {
 
           <h1 className="mt-6 max-w-[16ch] text-[clamp(2.5rem,5vw,4.7rem)] font-extrabold leading-[1.03] tracking-[-0.03em] text-white [text-shadow:0_8px_30px_rgba(0,0,0,0.72)]">
             La experiencia Yamaha{' '}
-            <span className="bg-gradient-to-r from-[#0038a8] via-[#ffffff] to-[#ce1126] bg-clip-text text-transparent [filter:drop-shadow(0_6px_14px_rgba(0,0,0,0.45))]">
+            <span className="bg-gradient-to-r from-[#0038a8] via-[#ffffff] to-[#ce1126] bg-clip-text text-transparent">
               en Costa Rica
             </span>
           </h1>
@@ -117,76 +108,6 @@ export function HeroSection() {
               Cotizar ahora
             </Link>
           </div>
-        </Reveal>
-
-        <Reveal className="lg:hidden" delay={120}>
-          {flyerCount > 0 ? (
-            <div className="mx-auto w-full max-w-sm">
-              <div className="relative aspect-[3/4] overflow-hidden drop-shadow-[0_20px_44px_rgba(0,0,0,0.4)]">
-                {FLYERS.slice(0, flyerCount).map((src, i) => (
-                  <div
-                    key={`mobile-${src}`}
-                    className="absolute inset-0 transition-all"
-                    style={{
-                      opacity: i === current ? 1 : 0,
-                      transform: i === current ? 'scale(1)' : 'scale(0.96)',
-                      transitionDuration: 'var(--duration-slow)',
-                      transitionTimingFunction: 'var(--ease-out-expo)',
-                    }}
-                  >
-                    <Image
-                      src={src}
-                      alt={`Promoción Yamaha ${i + 1}`}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 640px) 88vw, 420px"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {flyerCount > 1 && (
-                <div className="mt-4 flex items-center justify-center gap-3">
-                  <button
-                    onClick={prev}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/20 hover:text-white active:scale-[0.98]"
-                    aria-label="Anterior"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-
-                  <div className="flex gap-1.5">
-                    {FLYERS.slice(0, flyerCount).map((_, i) => (
-                      <button
-                        key={`mobile-dot-${i}`}
-                        onClick={() => setCurrent(i)}
-                        className={`h-1.5 rounded-full transition-all ${
-                          i === current ? 'w-6 bg-secondary-400' : 'w-1.5 bg-white/30 hover:bg-white/50'
-                        }`}
-                        style={{
-                          transitionDuration: 'var(--duration-normal)',
-                          transitionTimingFunction: 'var(--ease-out-expo)',
-                        }}
-                        aria-label={`Flyer ${i + 1}`}
-                      />
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={next}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/20 hover:text-white active:scale-[0.98]"
-                    aria-label="Siguiente"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : null}
         </Reveal>
 
         <Reveal className="hidden lg:order-2 lg:flex lg:items-center lg:justify-end lg:translate-x-8" delay={120}>
@@ -268,6 +189,70 @@ export function HeroSection() {
             </div>
           )}
         </Reveal>
+      </div>
+
+      <div className="relative z-10 -mt-px px-0 pb-0 pt-0 lg:hidden">
+        {flyerCount > 0 ? (
+          <div className="w-full">
+            <div className="relative w-full overflow-hidden">
+              <Image
+                key={`mobile-current-${current}`}
+                src={FLYERS[current]}
+                alt={`Promoción Yamaha ${current + 1}`}
+                width={1080}
+                height={1528}
+                className="h-auto w-full object-contain"
+                sizes="100vw"
+                priority
+              />
+
+              {flyerCount > 1 && (
+                <>
+                  <button
+                    onClick={prev}
+                    className="absolute left-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/58 text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-black/70 active:scale-[0.98]"
+                    aria-label="Anterior"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={next}
+                    className="absolute right-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/58 text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-black/70 active:scale-[0.98]"
+                    aria-label="Siguiente"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {flyerCount > 1 && (
+              <div className="mt-3 flex items-center justify-center gap-1.5 pb-3">
+                {FLYERS.slice(0, flyerCount).map((_, i) => (
+                  <button
+                    key={`mobile-full-dot-${i}`}
+                    onClick={() => setCurrent(i)}
+                    className={`h-1.5 rounded-full transition-all ${
+                      i === current ? 'w-6 bg-secondary-500' : 'w-1.5 bg-white/45 hover:bg-white/70'
+                    }`}
+                    style={{
+                      transitionDuration: 'var(--duration-normal)',
+                      transitionTimingFunction: 'var(--ease-out-expo)',
+                    }}
+                    aria-label={`Flyer ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-[56svh] w-full" />
+        )}
       </div>
     </section>
   );

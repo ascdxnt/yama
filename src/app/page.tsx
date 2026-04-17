@@ -47,9 +47,9 @@ export default async function HomePage() {
               Los más buscados por nuestros clientes
             </p>
           </Reveal>
-          <Reveal delay={120}>
+          <div>
             <ProductGrid products={featuredProducts} columns={3} />
-          </Reveal>
+          </div>
         </div>
       </section>
 

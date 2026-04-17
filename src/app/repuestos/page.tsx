@@ -34,19 +34,19 @@ export default function RepuestosPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 pb-6 pt-0 sm:px-6 lg:px-8 lg:py-12">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-stretch lg:gap-14 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
-          <div className="mx-auto flex w-full max-w-[360px] min-h-0 flex-col sm:max-w-[400px] lg:mx-0 lg:h-full lg:max-w-none">
-            <div className="relative aspect-[3/4] w-full min-h-0 flex-1 overflow-hidden rounded-2xl bg-white lg:aspect-auto lg:h-full">
+          <div className="order-1 -mx-4 flex w-auto min-h-0 flex-col sm:-mx-6 lg:mx-0 lg:w-full lg:order-1 lg:h-full lg:max-w-none">
+            <div className="relative h-[46vh] min-h-[280px] max-h-[480px] w-full min-h-0 flex-1 overflow-hidden bg-white lg:aspect-auto lg:h-full lg:min-h-0 lg:max-h-none lg:rounded-2xl">
               {flyerSrc ? (
-                <Image src={flyerSrc} alt="Flyer repuestos" fill className="object-contain p-2 sm:p-3" />
+                <Image src={flyerSrc} alt="Flyer repuestos" width={1080} height={1528} className="h-auto w-full object-contain bg-white lg:h-full" />
               ) : (
-                <div className="flex h-full items-center justify-center bg-surface-ghost text-sm text-text-muted">Subí `flyer.avif`</div>
+                <div className="flex h-[44vh] w-full items-center justify-center bg-surface-ghost text-sm text-text-muted lg:h-full">Subí `flyer.avif`</div>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-surface-subtle bg-white p-6 shadow-card sm:p-8">
+          <div className="order-2 rounded-2xl border border-surface-subtle bg-white p-6 shadow-card sm:p-8 lg:order-2">
             <h2 className="text-xl font-bold text-text-primary">Consúltanos:</h2>
             <div className="mt-5">
               <QuickRequestForm submitLabel="Solicitar Repuesto" />
@@ -54,8 +54,8 @@ export default function RepuestosPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl border border-surface-subtle bg-white shadow-card">
+        <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-start lg:gap-14 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+          <div className="overflow-hidden rounded-2xl lg:self-start">
             <div className="relative h-44 w-full bg-surface-ghost sm:h-52">
               {sideSrc ? (
                 <Image src={sideSrc} alt="Productos 100% originales" fill className="object-contain" />

@@ -40,8 +40,30 @@ export default function CotizadorMarinoPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="mb-8 grid gap-3 sm:grid-cols-3">
+      <section className="mx-auto flex max-w-7xl flex-col px-4 pb-6 pt-0 sm:px-6 lg:px-8 lg:py-16">
+        <div
+          className={
+            flyerSrc
+              ? 'order-1 -mx-4 flex w-auto min-h-0 flex-col sm:-mx-6 lg:hidden'
+              : 'hidden'
+          }
+        >
+          {flyerSrc && (
+            <div className="relative h-[46vh] min-h-[280px] max-h-[480px] w-full min-h-0 flex-1 overflow-hidden bg-white">
+              <Image
+                src={flyerSrc}
+                alt="Promoción — cotización Yamaha Marino"
+                width={1080}
+                height={1528}
+                className="h-auto w-full object-contain bg-white lg:h-full"
+                sizes="100vw"
+                priority
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="order-2 mb-8 mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-surface-subtle bg-surface-ghost p-4 text-sm">
             <p className="text-text-muted">Teléfono</p>
             <p className="font-bold text-text-primary">+506 2211 5900</p>
@@ -59,12 +81,12 @@ export default function CotizadorMarinoPage() {
         <div
           className={
             flyerSrc
-              ? 'grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-stretch lg:gap-14 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]'
+              ? 'order-3 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-stretch lg:gap-14 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]'
               : 'mx-auto max-w-2xl'
           }
         >
           {flyerSrc && (
-            <div className="mx-auto flex w-full max-w-[360px] min-h-0 flex-col sm:max-w-[400px] lg:mx-0 lg:h-full lg:max-w-none">
+            <div className="order-2 mx-auto hidden w-full max-w-[360px] min-h-0 flex-col sm:max-w-[400px] lg:order-1 lg:flex lg:mx-0 lg:h-full lg:max-w-none">
               <div className="relative aspect-[3/4] w-full min-h-0 flex-1 overflow-hidden rounded-2xl bg-white lg:aspect-auto lg:h-full">
                 <Image
                   src={flyerSrc}
@@ -78,13 +100,13 @@ export default function CotizadorMarinoPage() {
             </div>
           )}
 
-          <div className={flyerSrc ? 'flex min-h-0 min-w-0 flex-col lg:max-w-xl lg:self-stretch' : ''}>
+          <div className={flyerSrc ? 'order-1 flex min-h-0 min-w-0 flex-col lg:order-2 lg:max-w-xl lg:self-stretch' : ''}>
             <CotizadorMarinoForm />
           </div>
         </div>
 
         {sideSrc && (
-          <div className="mx-auto mt-8 max-w-3xl overflow-hidden rounded-2xl bg-white">
+          <div className="order-3 mx-auto mt-8 max-w-3xl overflow-hidden rounded-2xl bg-white">
             <div className="relative aspect-[16/9] w-full">
               <Image
                 src={sideSrc}

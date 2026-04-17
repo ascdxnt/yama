@@ -106,23 +106,25 @@ export default function ContactoPage() {
       </section>
 
       {/* Top: Flyer + Form side by side */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-7xl px-4 pb-6 pt-0 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Flyer */}
-          <div className="overflow-hidden rounded-[1.25rem] border border-surface-subtle shadow-card">
-            <Image
-              src="/YAMAHA_CostaRica_banner_Contacto.avif"
-              alt="Yamaha Costa Rica"
-              width={616}
-              height={728}
-              className="w-full h-auto"
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
+          <div className="order-1 -mx-4 flex w-auto min-h-0 flex-col sm:-mx-6 lg:mx-0 lg:w-full lg:order-1 lg:h-full lg:max-w-none">
+            <div className="relative h-[46vh] min-h-[280px] max-h-[480px] w-full min-h-0 flex-1 overflow-hidden bg-white lg:h-auto lg:min-h-0 lg:max-h-none lg:rounded-[1.25rem] lg:border lg:border-surface-subtle lg:shadow-card">
+              <Image
+                src="/YAMAHA_CostaRica_banner_Contacto.avif"
+                alt="Yamaha Costa Rica"
+                width={1080}
+                height={1528}
+                className="h-auto w-full object-contain bg-white lg:h-full"
+                priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            </div>
           </div>
 
           {/* Form */}
-          <div className="rounded-[1.25rem] border border-surface-subtle bg-white p-6 shadow-card sm:p-8">
+          <div className="order-2 rounded-[1.25rem] border border-surface-subtle bg-white p-6 shadow-card sm:p-8 lg:order-2">
             <h2 className="text-xl font-bold text-text-primary">Consúltanos</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Completá el formulario y te contactamos a la brevedad.

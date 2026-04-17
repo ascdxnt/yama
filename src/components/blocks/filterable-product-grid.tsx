@@ -53,6 +53,7 @@ export function FilterableProductGrid({
   const [tagFilter, setTagFilter] = useState('all');
   const [priceRange, setPriceRange] = useState<PriceFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('price_asc');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const categories = useMemo(
     () =>
@@ -105,9 +106,43 @@ export function FilterableProductGrid({
     setSortBy('price_asc');
   };
 
+  const activeFilterCount = [
+    search.trim().length > 0,
+    category !== 'all',
+    availability !== 'all',
+    financing !== 'all',
+    tagFilter !== 'all',
+    priceRange !== 'all',
+    sortBy !== 'price_asc',
+  ].filter(Boolean).length;
+
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-surface-subtle bg-surface-ghost/60 p-4 sm:p-5">
+      <div className="lg:hidden">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-surface-subtle bg-surface-ghost/60 p-3">
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((open) => !open)}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-surface-border bg-white px-4 text-sm font-semibold text-text-primary transition-colors hover:border-secondary-500/40"
+            aria-expanded={mobileFiltersOpen}
+            aria-controls="mobile-filters-panel"
+          >
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[11px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          <p className="text-sm text-text-secondary">
+            {filteredProducts.length} {filteredProducts.length === 1 ? 'modelo' : 'modelos'}
+          </p>
+        </div>
+      </div>
+
+      <div id="mobile-filters-panel" className={`${mobileFiltersOpen ? 'block' : 'hidden'} lg:block`}>
+        <div className="rounded-2xl border border-surface-subtle bg-surface-ghost/60 p-4 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
             Buscar
@@ -216,14 +251,24 @@ export function FilterableProductGrid({
           <p className="text-sm text-text-secondary">
             {filteredProducts.length} {filteredProducts.length === 1 ? 'modelo encontrado' : 'modelos encontrados'}
           </p>
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-surface-border bg-white px-4 text-xs font-semibold uppercase tracking-wide text-text-secondary transition-colors hover:border-secondary-500/40 hover:text-secondary-500"
-          >
-            Limpiar filtros
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex h-9 items-center justify-center rounded-full border border-surface-border bg-white px-4 text-xs font-semibold uppercase tracking-wide text-text-secondary transition-colors hover:border-secondary-500/40 hover:text-secondary-500"
+            >
+              Limpiar filtros
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen(false)}
+              className="inline-flex h-9 items-center justify-center rounded-full border border-surface-border bg-white px-4 text-xs font-semibold uppercase tracking-wide text-text-secondary transition-colors hover:border-secondary-500/40 hover:text-secondary-500 lg:hidden"
+            >
+              Ver modelos
+            </button>
+          </div>
         </div>
+      </div>
       </div>
 
       <ProductGrid products={filteredProducts} columns={columns} />

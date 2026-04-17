@@ -35,7 +35,7 @@ export default async function CotizadorPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <section className="mx-auto max-w-7xl px-4 pb-6 pt-0 sm:px-6 lg:px-8 lg:py-16">
         <div
           className={
             flyerSrc
@@ -44,13 +44,14 @@ export default async function CotizadorPage() {
           }
         >
           {flyerSrc && (
-            <div className="mx-auto flex w-full max-w-[360px] min-h-0 flex-col sm:max-w-[400px] lg:mx-0 lg:h-full lg:max-w-none">
-              <div className="relative aspect-[3/4] w-full min-h-0 flex-1 overflow-hidden rounded-2xl bg-white lg:aspect-auto lg:h-full">
+            <div className="order-1 -mx-4 flex w-auto min-h-0 flex-col sm:-mx-6 lg:mx-0 lg:w-full lg:order-1 lg:h-full lg:max-w-none">
+              <div className="relative h-[46vh] min-h-[280px] max-h-[480px] w-full min-h-0 flex-1 overflow-hidden bg-white lg:aspect-auto lg:h-full lg:min-h-0 lg:max-h-none lg:rounded-2xl">
                 <Image
                   src={flyerSrc}
                   alt="Promoción — cotización Yamaha Costa Rica"
-                  fill
-                  className="object-contain p-2 sm:p-3"
+                  width={1080}
+                  height={1528}
+                  className="h-auto w-full object-contain bg-white lg:h-full"
                   sizes="(max-width: 1024px) 90vw, (max-width: 1280px) 50vw, 560px"
                   priority
                 />
@@ -58,7 +59,7 @@ export default async function CotizadorPage() {
             </div>
           )}
 
-          <div className={flyerSrc ? 'flex min-h-0 min-w-0 flex-col lg:max-w-xl' : ''}>
+          <div className={flyerSrc ? 'order-2 flex min-h-0 min-w-0 flex-col lg:order-2 lg:max-w-xl' : ''}>
             <CotizadorForm modelEntries={modelEntries} />
           </div>
         </div>
