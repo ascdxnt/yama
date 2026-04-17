@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Reveal } from '@/components/patterns/reveal';
 
 const BACKGROUND_IMAGE_URL = '/hero/backgrounds/hero-bg.avif';
-const FLYERS = [
+const DEFAULT_FLYERS = [
   '/hero/flyers/flyer-1.avif',
   '/hero/flyers/flyer-2.avif',
   '/hero/flyers/flyer-3.avif',
@@ -14,13 +14,17 @@ const FLYERS = [
   '/hero/flyers/flyer-5.avif',
 ];
 
-export function HeroSection() {
+type HeroSectionProps = {
+  flyers?: string[];
+};
+
+export function HeroSection({ flyers = DEFAULT_FLYERS }: HeroSectionProps) {
   const [current, setCurrent] = useState(0);
   const [flyerCount, setFlyerCount] = useState(0);
 
   useEffect(() => {
     let count = 0;
-    const checks = FLYERS.map((src) =>
+    const checks = flyers.map((src) =>
       fetch(src, { method: 'HEAD' })
         .then((res) => {
           if (res.ok) count++;
@@ -28,7 +32,7 @@ export function HeroSection() {
         .catch(() => {})
     );
     Promise.all(checks).then(() => setFlyerCount(count));
-  }, []);
+  }, [flyers]);
 
   const next = useCallback(() => {
     if (flyerCount > 0) setCurrent((c) => (c + 1) % flyerCount);
@@ -43,6 +47,16 @@ export function HeroSection() {
     const timer = setInterval(next, 5000);
     return () => clearInterval(timer);
   }, [flyerCount, next]);
+
+  useEffect(() => {
+    if (flyerCount === 0) {
+      setCurrent(0);
+      return;
+    }
+    if (current >= flyerCount) {
+      setCurrent(0);
+    }
+  }, [current, flyerCount]);
 
   return (
     <section id="home-hero" className="noise-overlay relative overflow-hidden bg-transparent pt-[65px] lg:bg-primary-900 lg:pt-0">
@@ -114,7 +128,7 @@ export function HeroSection() {
           {flyerCount > 0 ? (
             <div className="relative w-full">
               <div className="relative aspect-[3/4] overflow-hidden drop-shadow-[0_26px_55px_rgba(0,0,0,0.42)]">
-                {FLYERS.slice(0, flyerCount).map((src, i) => (
+                {flyers.slice(0, flyerCount).map((src, i) => (
                   <div
                     key={src}
                     className="absolute inset-0 transition-all"
@@ -149,7 +163,7 @@ export function HeroSection() {
                   </button>
 
                   <div className="flex gap-1.5">
-                    {FLYERS.slice(0, flyerCount).map((_, i) => (
+                    {flyers.slice(0, flyerCount).map((_, i) => (
                       <button
                         key={i}
                         onClick={() => setCurrent(i)}
@@ -197,7 +211,7 @@ export function HeroSection() {
             <div className="relative w-full overflow-hidden">
               <Image
                 key={`mobile-current-${current}`}
-                src={FLYERS[current]}
+                src={flyers[current]}
                 alt={`Promoción Yamaha ${current + 1}`}
                 width={1080}
                 height={1528}
@@ -233,7 +247,7 @@ export function HeroSection() {
 
             {flyerCount > 1 && (
               <div className="mt-3 flex items-center justify-center gap-1.5 pb-3">
-                {FLYERS.slice(0, flyerCount).map((_, i) => (
+                {flyers.slice(0, flyerCount).map((_, i) => (
                   <button
                     key={`mobile-full-dot-${i}`}
                     onClick={() => setCurrent(i)}
