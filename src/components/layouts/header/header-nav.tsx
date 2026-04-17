@@ -180,7 +180,7 @@ export function HeaderNav() {
       <button
         type="button"
         onClick={() => (mobileMenuOpen ? closeMobileMenu() : openMobileMenu())}
-        className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary transition-premium-fast hover:bg-surface-ghost lg:hidden"
+        className="relative ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary transition-premium-fast hover:bg-surface-ghost lg:hidden"
         aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
       >
         <span className="relative block h-5 w-5">

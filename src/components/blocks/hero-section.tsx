@@ -86,7 +86,10 @@ export function HeroSection() {
           </span>
 
           <h1 className="mt-6 max-w-[16ch] text-[clamp(2.5rem,5vw,4.7rem)] font-extrabold leading-[1.03] tracking-[-0.03em] text-white [text-shadow:0_8px_30px_rgba(0,0,0,0.72)]">
-            La experiencia Yamaha <span className="text-secondary-100">en Costa Rica</span>
+            La experiencia Yamaha{' '}
+            <span className="bg-gradient-to-r from-[#0038a8] via-[#ffffff] to-[#ce1126] bg-clip-text text-transparent [filter:drop-shadow(0_6px_14px_rgba(0,0,0,0.45))]">
+              en Costa Rica
+            </span>
           </h1>
 
           <p className="mt-6 max-w-[50ch] text-base leading-relaxed text-white/92 [text-shadow:0_6px_22px_rgba(0,0,0,0.65)] sm:text-lg">
@@ -97,7 +100,7 @@ export function HeroSection() {
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <Link
               href="/motos"
-              className="group inline-flex items-center gap-3 rounded-full bg-secondary-500 py-3.5 pl-7 pr-4 text-base font-semibold text-white transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:bg-secondary-400 hover:shadow-glow-cta active:translate-y-0 active:scale-[0.98]"
+              className="group inline-flex items-center justify-center gap-3 rounded-full bg-secondary-500 px-7 py-3.5 text-base font-semibold text-white transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:bg-secondary-400 hover:shadow-glow-cta active:translate-y-0 active:scale-[0.98] sm:pl-7 sm:pr-4"
             >
               Ver motos
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105 group-hover:bg-white/30">
@@ -114,6 +117,76 @@ export function HeroSection() {
               Cotizar ahora
             </Link>
           </div>
+        </Reveal>
+
+        <Reveal className="lg:hidden" delay={120}>
+          {flyerCount > 0 ? (
+            <div className="mx-auto w-full max-w-sm">
+              <div className="relative aspect-[3/4] overflow-hidden drop-shadow-[0_20px_44px_rgba(0,0,0,0.4)]">
+                {FLYERS.slice(0, flyerCount).map((src, i) => (
+                  <div
+                    key={`mobile-${src}`}
+                    className="absolute inset-0 transition-all"
+                    style={{
+                      opacity: i === current ? 1 : 0,
+                      transform: i === current ? 'scale(1)' : 'scale(0.96)',
+                      transitionDuration: 'var(--duration-slow)',
+                      transitionTimingFunction: 'var(--ease-out-expo)',
+                    }}
+                  >
+                    <Image
+                      src={src}
+                      alt={`Promoción Yamaha ${i + 1}`}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 640px) 88vw, 420px"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {flyerCount > 1 && (
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <button
+                    onClick={prev}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/20 hover:text-white active:scale-[0.98]"
+                    aria-label="Anterior"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+
+                  <div className="flex gap-1.5">
+                    {FLYERS.slice(0, flyerCount).map((_, i) => (
+                      <button
+                        key={`mobile-dot-${i}`}
+                        onClick={() => setCurrent(i)}
+                        className={`h-1.5 rounded-full transition-all ${
+                          i === current ? 'w-6 bg-secondary-400' : 'w-1.5 bg-white/30 hover:bg-white/50'
+                        }`}
+                        style={{
+                          transitionDuration: 'var(--duration-normal)',
+                          transitionTimingFunction: 'var(--ease-out-expo)',
+                        }}
+                        aria-label={`Flyer ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={next}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/20 hover:text-white active:scale-[0.98]"
+                    aria-label="Siguiente"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </Reveal>
 
         <Reveal className="hidden lg:order-2 lg:flex lg:items-center lg:justify-end lg:translate-x-8" delay={120}>

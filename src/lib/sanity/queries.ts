@@ -22,6 +22,11 @@ const PRODUCT_IMAGE_FOLDER_OVERRIDES: Record<string, string> = {
   'wolverine-x4-1000-xtr': 'products/cuadraciclos/mulas/wolverine-x4-1000-xtr',
 };
 
+const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
+  'fx-cruiser-svho': '/categories/marino/waverunner/cover.avif',
+  'vx1050-c': '/categories/marino/waverunner/cover.avif',
+};
+
 const IMAGE_EXTENSIONS = ['avif', 'webp', 'png', 'jpg', 'jpeg'] as const;
 const PUBLIC_ROOT = path.join(process.cwd(), 'public');
 
@@ -135,6 +140,17 @@ function img(model: string, slug: string) {
       alt: `Yamaha ${model}`,
     };
   }
+
+  const fallbackBySlug = PRODUCT_IMAGE_FALLBACKS[slug];
+  if (fallbackBySlug) {
+    return {
+      url: fallbackBySlug,
+      alt: `Yamaha ${model}`,
+      width: 800,
+      height: 600,
+    };
+  }
+
   return {
     url: '/images/placeholder-product.avif',
     alt: `Yamaha ${model}`,

@@ -22,7 +22,7 @@ export function Header() {
             <YamahaLogo className="h-7 w-auto sm:h-8" color="#003e95" />
           </Link>
 
-          <div className="mx-3 flex min-w-0 flex-1 items-center justify-center lg:mx-6">
+          <div className="mx-3 flex min-w-0 flex-1 items-center justify-end lg:mx-6 lg:justify-center">
             <HeaderNav />
           </div>
 
