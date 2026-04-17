@@ -41,29 +41,20 @@ const CATEGORIES_DISPLAY = [
 ];
 
 export function CategoryShowcase() {
-  const cardLayout = [
-    'lg:col-span-2 lg:row-span-2',
-    'lg:col-span-1 lg:row-span-1',
-    'lg:col-span-1 lg:row-span-1',
-    'lg:col-span-2 lg:row-span-1',
-    'lg:col-span-1 lg:row-span-1',
-    'lg:col-span-1 lg:row-span-1',
-  ];
-
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 lg:auto-rows-[minmax(14rem,auto)] lg:gap-6">
-      {CATEGORIES_DISPLAY.map((cat, index) => (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
+      {CATEGORIES_DISPLAY.map((cat) => (
         <Link
           key={cat.href + cat.name}
           href={cat.href}
-          className={`group flex flex-col overflow-hidden rounded-[1.5rem] bg-white shadow-card ring-1 ring-black/[0.04] transition-premium hover:-translate-y-1 hover:shadow-card-hover active:scale-[0.98] ${cardLayout[index]}`}
+          className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] bg-white shadow-card ring-1 ring-black/[0.04] transition-premium hover:-translate-y-1 hover:shadow-card-hover active:scale-[0.98]"
         >
-          <div className="relative aspect-[4/3] bg-white lg:aspect-auto lg:min-h-44">
+          <div className="relative aspect-[16/11] bg-white">
             <Image
               src={cat.image}
               alt={cat.name}
               fill
-              className="object-contain transition-transform group-hover:scale-[1.03]"
+              className="object-contain p-3 transition-transform group-hover:scale-[1.03]"
               style={{
                 transitionDuration: 'var(--duration-glacial)',
                 transitionTimingFunction: 'var(--ease-out-expo)',
