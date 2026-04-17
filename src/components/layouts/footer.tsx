@@ -125,7 +125,7 @@ export function Footer() {
                 {CATEGORIES.marino.subcategories.map((sub) => (
                   <li key={sub.slug}>
                     <Link
-                      href={`/marino/${sub.slug}`}
+                      href={('href' in sub ? sub.href : undefined) ?? `/marino/${sub.slug}`}
                       className="inline-block text-sm text-primary-200/90 transition-all duration-300 hover:translate-x-0.5 hover:text-white"
                       style={{ transitionTimingFunction: 'var(--ease-out-expo)' }}
                     >

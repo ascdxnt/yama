@@ -21,19 +21,21 @@ const MARINE_CATEGORIES = [
   },
   {
     slug: 'taller-marino',
+    href: '/tallermarino',
     label: 'Taller Marino',
     tagline: 'Servicio técnico especializado',
     image: '/categories/marino/taller-marino/cover.avif',
   },
   {
     slug: 'repuestos-y-accesorios',
+    href: '/repuestos',
     label: 'Repuestos y Accesorios',
     tagline: 'Repuestos originales y accesorios marinos Yamaha',
     image: '/categories/marino/repuestos-y-accesorios/cover.avif',
   },
 ];
 
-export default function MarinoPage() {
+export default async function MarinoPage() {
   return (
     <>
       {/* Hero */}
@@ -55,7 +57,6 @@ export default function MarinoPage() {
         </div>
       </section>
 
-      {/* Bento category grid — 3 categories: Waverunner large, other two stacked */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="mb-12">
           <span className="inline-block rounded-full bg-primary-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-500">
@@ -70,7 +71,7 @@ export default function MarinoPage() {
           {MARINE_CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
-              href={`/marino/${cat.slug}`}
+              href={cat.href ?? `/marino/${cat.slug}`}
               className="group flex flex-col overflow-hidden rounded-[1.5rem] bg-white shadow-card ring-1 ring-black/[0.04] transition-premium hover:-translate-y-1 hover:shadow-card-hover active:scale-[0.98]"
             >
               <div className="relative aspect-[4/3] bg-white">
@@ -91,9 +92,7 @@ export default function MarinoPage() {
                 <h3 className="text-lg font-extrabold text-text-primary transition-colors-premium group-hover:text-secondary-500 sm:text-xl">
                   {cat.label}
                 </h3>
-                <p className="mt-1.5 text-[13px] text-text-secondary">
-                  {cat.tagline}
-                </p>
+                <p className="mt-1.5 text-[13px] text-text-secondary">{cat.tagline}</p>
                 <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-secondary-500 transition-colors-premium group-hover:text-secondary-400">
                   Ver modelos
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary-500/10 transition-premium group-hover:bg-secondary-500/20">

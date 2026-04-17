@@ -1,6 +1,6 @@
 const SANITY_PROJECT_ID = process.env.SANITY_PROJECT_ID || 'mock';
 const SANITY_DATASET = process.env.SANITY_DATASET || 'production';
-const SANITY_API_VERSION = '2026-04-01';
+const SANITY_API_VERSION = process.env.SANITY_API_VERSION || '2026-04-16';
 
 interface SanityClientConfig {
   projectId: string;
@@ -15,7 +15,7 @@ export const sanityConfig: SanityClientConfig = {
   dataset: SANITY_DATASET,
   apiVersion: SANITY_API_VERSION,
   useCdn: process.env.NODE_ENV === 'production',
-  token: process.env.SANITY_API_TOKEN,
+  token: process.env.SANITY_READ_TOKEN || process.env.SANITY_API_TOKEN,
 };
 
 export async function sanityFetch<T>(query: string, params?: Record<string, unknown>): Promise<T> {
@@ -34,7 +34,7 @@ export async function sanityFetch<T>(query: string, params?: Record<string, unkn
 
   const res = await fetch(url.toString(), {
     headers,
-    next: { revalidate: 60 },
+    next: { revalidate: 60, tags: ['products', 'categories'] },
   });
 
   if (!res.ok) {

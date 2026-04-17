@@ -35,7 +35,7 @@ export const DEALERSHIP = {
   coordinates: { lat: 9.9516, lng: -84.1107 },
   mapsQuery: 'Yamaha+Costa+Rica+La+Uruca+San+José',
   mapsEmbedUrl:
-    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3929.8!2d-84.1107!3d9.9516!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sYamaha+Costa+Rica!5e0!3m2!1ses!2scr!4v1',
+    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d31438.29793188868!2d-84.12614967271416!3d9.95165216767524!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8fa0e4ae729e7915%3A0xd0cd4a67de9d18a5!2sYamaha!5e0!3m2!1sen!2sus!4v1776401705477!5m2!1sen!2sus',
   directionsUrl:
     'https://www.google.com/maps/dir/?api=1&destination=Yamaha+Costa+Rica+La+Uruca+San+José',
   services: ['Ventas', 'Taller', 'Repuestos'] as const,
@@ -93,7 +93,9 @@ export const CATEGORIES = {
     subcategories: [
       { slug: 'waverunner', label: 'Waverunner' },
       { slug: 'motores-fuera-de-borda', label: 'Motores Fuera de Borda' },
-      { slug: 'taller-marino', label: 'Taller Marino' },
+      { slug: 'cotizador-marino', label: 'Cotizador Marino', href: '/cotizadormarino' },
+      { slug: 'taller-marino', label: 'Taller Marino', href: '/tallermarino' },
+      { slug: 'repuestos-y-accesorios', label: 'Repuestos y Accesorios', href: '/repuestos' },
     ],
   },
 } as const;

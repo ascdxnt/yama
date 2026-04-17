@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { dataLayer } from '@/lib/tracking/data-layer';
-import { COTIZADOR_BRANCH_OPTIONS, COTIZADOR_MODEL_ENTRIES } from '@/lib/cotizador-form-options';
+import { COTIZADOR_BRANCH_OPTIONS } from '@/lib/cotizador-form-options';
+import type { CotizadorSelectEntry } from '@/lib/cotizador-form-options';
 
 const schema = z
   .object({
@@ -48,7 +49,11 @@ const inputClass =
   'mt-1.5 flex h-11 w-full rounded-xl border bg-white px-4 text-sm text-text-primary transition-colors focus:border-secondary-500 focus:outline-none focus:ring-2 focus:ring-secondary-500/20';
 const labelClass = 'block text-sm font-semibold text-text-secondary';
 
-export function CotizadorForm() {
+interface CotizadorFormProps {
+  modelEntries: CotizadorSelectEntry[];
+}
+
+export function CotizadorForm({ modelEntries }: CotizadorFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -202,7 +207,7 @@ export function CotizadorForm() {
           <option value="" disabled>
             Elige una opción
           </option>
-          {COTIZADOR_MODEL_ENTRIES.map((entry, i) =>
+          {modelEntries.map((entry, i) =>
             entry.kind === 'separator' ? (
               <option key={`sep-${i}`} value={`__sep_${i}`} disabled className="text-text-muted">
                 ————————————

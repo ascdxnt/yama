@@ -1,0 +1,45 @@
+export const COTIZADOR_MARINO_MOTOR_TYPE_OPTIONS = [
+  { value: '', label: 'Elige una opción' },
+  { value: '2_tiempos', label: '2 Tiempos' },
+  { value: '4_tiempos', label: '4 Tiempos' },
+] as const;
+
+export const COTIZADOR_MARINO_MODELS_2T = [
+  '4CMHS',
+  'E8DMHS',
+  'E15DMHS',
+  'E15DMHL',
+  '30HMHL',
+  'E40XMHS',
+  'E40XMHL',
+  '40XWTL',
+  'E60HMHDL',
+  'E75BMHDL',
+  '85AETL',
+  '200AETX',
+  'L200AETX',
+] as const;
+
+export const COTIZADOR_MARINO_MODELS_4T = [
+  'FT60GETL',
+  'FT60GEHDL',
+  'F70AETL',
+  'F90CETL',
+  'F115BETL',
+  'F115BETX',
+  'FL115BETX',
+  'FL130AETX',
+  'F150FETX',
+  'FL150FETX',
+  'F200FETX',
+  'FL200FETX',
+  'F250HETX',
+  'FL250HETX',
+  'F300GETX',
+  'FL300GETX',
+  'F300GETU',
+  'F300FST2X',
+  'FL300FST2X',
+  'F425AST2X',
+  'FL425AST2X',
+] as const;

@@ -12,9 +12,10 @@ interface StickyCtaBarProps {
   currency: Currency;
   productId: string;
   whatsappNumber: string;
+  hidePrice?: boolean;
 }
 
-export function StickyCtaBar({ productName, price, salePrice, currency, productId, whatsappNumber }: StickyCtaBarProps) {
+export function StickyCtaBar({ productName, price, salePrice, currency, productId, whatsappNumber, hidePrice = false }: StickyCtaBarProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -52,7 +53,9 @@ export function StickyCtaBar({ productName, price, salePrice, currency, productI
           <p className="truncate text-sm font-bold text-text-primary" title={productName}>
             {productName}
           </p>
-          {salePrice != null && salePrice < price ? (
+          {hidePrice ? (
+            <p className="truncate text-sm font-extrabold text-text-primary">Consultar precio</p>
+          ) : salePrice != null && salePrice < price ? (
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
               <p className="truncate text-sm font-extrabold text-red-600">{formatPrice(salePrice, currency)}</p>
               <p className="truncate text-xs text-text-muted line-through">{formatPrice(price, currency)}</p>

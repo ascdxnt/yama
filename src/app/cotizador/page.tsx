@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import fs from 'node:fs';
 import path from 'node:path';
 import Image from 'next/image';
+import { getAllProducts } from '@/lib/sanity/queries';
+import { buildCotizadorModelEntries } from '@/lib/cotizador-form-options';
 import { CotizadorForm } from './cotizador-form';
 
 export const metadata: Metadata = {
@@ -17,8 +19,10 @@ function getCotizadorFlyerSrc(): string | null {
   return null;
 }
 
-export default function CotizadorPage() {
+export default async function CotizadorPage() {
   const flyerSrc = getCotizadorFlyerSrc();
+  const products = await getAllProducts();
+  const modelEntries = buildCotizadorModelEntries(products);
 
   return (
     <>
@@ -55,7 +59,7 @@ export default function CotizadorPage() {
           )}
 
           <div className={flyerSrc ? 'flex min-h-0 min-w-0 flex-col lg:max-w-xl' : ''}>
-            <CotizadorForm />
+            <CotizadorForm modelEntries={modelEntries} />
           </div>
         </div>
       </section>

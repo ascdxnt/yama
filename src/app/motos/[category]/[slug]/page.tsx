@@ -118,6 +118,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         currency={product.currency}
         productId={product._id}
         whatsappNumber={WHATSAPP_NUMBER}
+        hidePrice={product.category.parentCategory === 'marino' && product.category.slug === 'motores-fuera-de-borda'}
       />
     </>
   );

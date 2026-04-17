@@ -48,6 +48,7 @@ export function ProductCard({
 
   const hasDiscount = salePrice != null && salePrice < price;
   const displayPrice = hasDiscount ? salePrice : price;
+  const hidePrice = parentCategory === 'marino' && categorySlug === 'motores-fuera-de-borda';
 
   return (
     <Link
@@ -130,7 +131,9 @@ export function ProductCard({
           )}
 
           <div className="mt-auto pt-4">
-            {hasDiscount ? (
+            {hidePrice ? (
+              <p className="text-lg font-extrabold text-text-primary">Consultar precio</p>
+            ) : hasDiscount ? (
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <p className="min-w-0 text-lg font-extrabold tabular-nums text-red-600">
                   {formatPrice(displayPrice, currency)}

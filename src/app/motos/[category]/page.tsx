@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ProductGrid } from '@/components/blocks';
+import { FilterableProductGrid } from '@/components/blocks';
 import { BreadcrumbJsonLd } from '@/components/seo/breadcrumb-json-ld';
 import { getProductsByCategory } from '@/lib/sanity/queries';
 import { CATEGORIES } from '@/lib/constants';
@@ -57,7 +57,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-        <ProductGrid products={products} columns={3} />
+        <FilterableProductGrid products={products} columns={3} />
       </section>
     </>
   );

@@ -8,6 +8,7 @@ export interface NavItem {
 export interface SubCategory {
   slug: string;
   label: string;
+  href?: string;
 }
 
 export interface CategoryConfig {

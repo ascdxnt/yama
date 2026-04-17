@@ -1,31 +1,138 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Product, ProductCard } from '@/types';
+import { sanityFetch } from './client';
 
-const PRODUCT_IMAGES: Record<string, { category: string; folder: string; count: number }> = {
-  'ray-zr':             { category: 'scooter',          folder: 'ray-zr',                  count: 1 },
-  'nmax':               { category: 'scooter',          folder: 'nmax',                     count: 2 },
-  'xmax-300':           { category: 'scooter',          folder: 'x-max300',                 count: 2 },
-  'crux-rev':           { category: 'urbanas',          folder: 'crux-rev',                 count: 3 },
-  'ys125-ed':           { category: 'urbanas',          folder: 'ys125-ed',                 count: 2 },
-  'fzn150-fi':          { category: 'urbanas',          folder: 'fzn150-fl',                count: 1 },
-  'fzn150-4-fi-abs-tcs':{ category: 'urbanas',          folder: 'fzn150-4.0-fl-abs-tcs',    count: 7 },
-  'fz-250-fi':          { category: 'urbanas',          folder: 'fz-250-fi',                count: 9 },
-  'mt-15-fi':           { category: 'urbanas',          folder: 'mt-15-fi',                 count: 8 },
-  'mt-03-fi':           { category: 'urbanas',          folder: 'mt-03-fi',                 count: 10 },
-  'yzf-r3-fi':          { category: 'urbanas',          folder: 'yzf-r3-fi',                count: 7 },
-  'ys125-g':            { category: 'montanero',        folder: 'ys125-g',                  count: 2 },
-  'xtz-125':            { category: 'montanero',        folder: 'xtz-125',                  count: 5 },
-  'xtz-150-fi':         { category: 'montanero',        folder: 'xtz-150-fi',               count: 5 },
-  'wr155-fi':           { category: 'montanero',        folder: 'wr155-fi',                 count: 6 },
+const PRODUCT_IMAGE_FOLDER_OVERRIDES: Record<string, string> = {
+  'xmax-300': 'products/motos/scooter/x-max300',
+  'fzn150-fi': 'products/motos/urbanas/fzn150-fl',
+  'fzn150-4-fi-abs-tcs': 'products/motos/urbanas/fzn150-4.0-fl-abs-tcs',
+  'mt-07-yamt': 'products/motos/alta-cilindrada/mt-07-y-amt',
+  'mt-09-yamt': 'products/motos/alta-cilindrada/mt-09-y-amt',
+  'mt-10-sp': 'products/motos/alta-cilindrada/mt10-sp',
+  'tracer-9-gt-plus': 'products/motos/alta-cilindrada/tracer-9-gt+',
+  yfz50: 'products/cuadraciclos/cuadraciclos/yfz50',
+  raptor110: 'products/cuadraciclos/cuadraciclos/raptor110',
+  yfz450r: 'products/cuadraciclos/cuadraciclos/yfz450r',
+  'raptor-700r-se': 'products/cuadraciclos/cuadraciclos/raptor-700r-se',
+  'kodiak-450-std': 'products/cuadraciclos/cuadraciclos/kodiak-450-std',
+  'kodiak-450-eps': 'products/cuadraciclos/cuadraciclos/kodiak-450-eps',
+  'grizzly-700-xtr': 'products/cuadraciclos/cuadraciclos/grizzly-700-xtr',
+  'wolverine-x4-850-xtr': 'products/cuadraciclos/mulas/wolverine-x4-850-xtr',
+  'wolverine-x4-1000-xtr': 'products/cuadraciclos/mulas/wolverine-x4-1000-xtr',
 };
 
-function img(model: string, slug: string) {
-  const entry = PRODUCT_IMAGES[slug];
-  if (entry) {
-    return {
-      url: `/products/motos/${entry.category}/${entry.folder}/gallery-1.avif`,
-      alt: `Yamaha ${model}`,
+const IMAGE_EXTENSIONS = ['avif', 'webp', 'png', 'jpg', 'jpeg'] as const;
+const PUBLIC_ROOT = path.join(process.cwd(), 'public');
+
+function hasGalleryOne(dirAbsolute: string): boolean {
+  return IMAGE_EXTENSIONS.some((ext) => fs.existsSync(path.join(dirAbsolute, `gallery-1.${ext}`)));
+}
+
+function collectGalleryFolders(currentDirAbsolute: string, relativeFromPublic: string, out: Map<string, string>) {
+  const entries = fs.readdirSync(currentDirAbsolute, { withFileTypes: true });
+
+  if (hasGalleryOne(currentDirAbsolute)) {
+    const folderName = path.basename(currentDirAbsolute).toLowerCase();
+    if (!out.has(folderName)) {
+      out.set(folderName, relativeFromPublic.replace(/\\/g, '/'));
+    }
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    collectGalleryFolders(path.join(currentDirAbsolute, entry.name), path.join(relativeFromPublic, entry.name), out);
+  }
+}
+
+function buildGalleryFolderIndex(): Map<string, string> {
+  const productsRoot = path.join(PUBLIC_ROOT, 'products');
+  const index = new Map<string, string>();
+
+  if (!fs.existsSync(productsRoot)) return index;
+  collectGalleryFolders(productsRoot, 'products', index);
+  return index;
+}
+
+const GALLERY_FOLDER_INDEX = buildGalleryFolderIndex();
+
+function findGalleryDirRuntime(currentDirAbsolute: string, relativeFromPublic: string, slug: string): string | null {
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(currentDirAbsolute, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const childAbsolute = path.join(currentDirAbsolute, entry.name);
+    const childRelative = path.join(relativeFromPublic, entry.name);
+
+    if (entry.name.toLowerCase() === slug.toLowerCase() && hasGalleryOne(childAbsolute)) {
+      return childRelative.replace(/\\/g, '/');
+    }
+
+    const found = findGalleryDirRuntime(childAbsolute, childRelative, slug);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function resolveProductGalleryDir(slug: string): string | null {
+  const override = PRODUCT_IMAGE_FOLDER_OVERRIDES[slug];
+  if (override) return override;
+
+  const fromIndex = GALLERY_FOLDER_INDEX.get(slug.toLowerCase()) ?? null;
+  if (fromIndex) {
+    const absolute = path.join(PUBLIC_ROOT, fromIndex);
+    if (hasGalleryOne(absolute)) return fromIndex;
+  }
+
+  const productsRoot = path.join(PUBLIC_ROOT, 'products');
+  if (!fs.existsSync(productsRoot)) return null;
+  return findGalleryDirRuntime(productsRoot, 'products', slug);
+}
+
+function findGalleryImageUrl(relativeDir: string, index: number): string | null {
+  for (const ext of IMAGE_EXTENSIONS) {
+    const filename = `gallery-${index}.${ext}`;
+    const absolutePath = path.join(PUBLIC_ROOT, relativeDir, filename);
+    if (fs.existsSync(absolutePath)) {
+      return `/${relativeDir}/${filename}`.replace(/\\/g, '/');
+    }
+  }
+  return null;
+}
+
+function getGalleryImages(model: string, slug: string) {
+  const galleryDir = resolveProductGalleryDir(slug);
+  if (!galleryDir) return null;
+
+  const images = [];
+  for (let i = 1; i <= 40; i += 1) {
+    const url = findGalleryImageUrl(galleryDir, i);
+    if (!url) break;
+    images.push({
+      url,
+      alt: `Yamaha ${model} — foto ${i}`,
       width: 800,
       height: 600,
+    });
+  }
+
+  return images.length > 0 ? images : null;
+}
+
+function img(model: string, slug: string) {
+  const detected = getGalleryImages(model, slug);
+  if (detected) {
+    return {
+      ...detected[0],
+      alt: `Yamaha ${model}`,
     };
   }
   return {
@@ -37,15 +144,8 @@ function img(model: string, slug: string) {
 }
 
 function imgs(model: string, slug: string) {
-  const entry = PRODUCT_IMAGES[slug];
-  if (entry) {
-    return Array.from({ length: entry.count }, (_, i) => ({
-      url: `/products/motos/${entry.category}/${entry.folder}/gallery-${i + 1}.avif`,
-      alt: `Yamaha ${model} — foto ${i + 1}`,
-      width: 800,
-      height: 600,
-    }));
-  }
+  const detected = getGalleryImages(model, slug);
+  if (detected) return detected;
   const i = img(model, slug);
   return [i];
 }
@@ -2477,6 +2577,1535 @@ const PRODUCTS: Product[] = [
     featured: false,
     sortOrder: 1,
   },
+
+  // ─────────────────────────────────────────────
+  // CUADRACICLOS & MULAS
+  // ─────────────────────────────────────────────
+  {
+    _id: 'yfz50',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'YFZ50',
+    slug: 'yfz50',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 2295000,
+    currency: 'CRC',
+    formattedPrice: '₡2.295.000',
+    tagline: 'Piloto por primera vez, recuerdos para toda la vida',
+    images: imgs('YFZ50', 'yfz50'),
+    heroImage: img('YFZ50', 'yfz50'),
+    shortDescription: 'Vehiculo con aspecto deportivo inspirado en el YFZ450R, con motor de 49 cc de bajo mantenimiento y transmision automatica.',
+    description:
+      'El YFZ50 esta disenado para iniciar con confianza: arranque electrico, limitadores del motor y mantenimiento sencillo gracias al filtro de aire de acceso rapido sin herramientas.',
+    keySpecs: [
+      { icon: 'engine', value: '49 cc', label: 'Cilindrada' },
+      { icon: 'power', value: '4 tiempos', label: 'Motor' },
+      { icon: 'transmission', value: 'Automatica', label: 'Transmision' },
+      { icon: 'weight', value: '100 kg', label: 'Peso' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor',
+        specs: [
+          { name: 'Tipo', value: '4 tiempos, carburado, enfriado por aire, 2 valvulas' },
+          { name: 'Cilindrada', value: '49 cc' },
+          { name: 'Arranque', value: 'Electrico' },
+          { name: 'Transmision', value: 'Automatica' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Llantas', value: 'Delantera AT16 x 6.5-7 / Trasera AT16 x 7-7' },
+          { name: 'Suspension', value: 'Delantera independiente y trasera monocompensador' },
+          { name: 'Frenos', value: 'Delantero y trasero de tambor' },
+          { name: 'Peso total', value: '100 kg' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Inicio seguro', description: 'Motor accesible y controles pensados para primeros pilotos.' },
+      { type: 'practical', title: 'Mantenimiento simple', description: 'Filtro de aire de acceso rapido sin herramientas.' },
+      { type: 'emotional', title: 'Estilo deportivo', description: 'Diseno inspirado en el YFZ450R.' },
+    ],
+    priceNote:
+      '*No incluye gastos de inscripcion por su naturaleza. Precios promocion sujetos a cambios, restricciones y condiciones en punto de venta.',
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: false,
+    sortOrder: 1,
+  },
+  {
+    _id: 'raptor110',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Raptor110',
+    slug: 'raptor110',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 2890000,
+    currency: 'CRC',
+    formattedPrice: '₡2.890.000',
+    tagline: 'Llamado a nuevos pilotos',
+    images: imgs('Raptor110', 'raptor110'),
+    heroImage: img('Raptor110', 'raptor110'),
+    shortDescription: 'El Raptor 110 esta disenado para comodidad y control, con ergonomia espaciosa, asiento confortable y apoyapies anchos.',
+    description:
+      'Con motor de 112 cc, inyeccion electronica y arranque electrico, ofrece diversion confiable. Los indicadores de reversa, neutro, motor y combustible dan mayor confianza en todo momento.',
+    keySpecs: [
+      { icon: 'engine', value: '112 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Inyectado', label: 'Motor' },
+      { icon: 'transmission', value: 'CVT con reversa', label: 'Transmision' },
+      { icon: 'weight', value: '130 kg', label: 'Peso' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor',
+        specs: [
+          { name: 'Tipo', value: 'Inyectado, enfriado por aire, 2 valvulas' },
+          { name: 'Cilindrada', value: '112 cc' },
+          { name: 'Arranque', value: 'Electrico' },
+          { name: 'Transmision', value: 'Automatico con reversa (CVT; F, N, R)' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Llantas', value: 'Delantera AT18 x 7-8 / Trasera AT18 x 9-8' },
+          { name: 'Suspension', value: 'Delantera independiente y trasera monoamortiguador' },
+          { name: 'Frenos', value: 'Delantero y trasero de tambor' },
+          { name: 'Peso total', value: '130 kg' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'EFI confiable', description: 'Rendimiento solido con bajo mantenimiento.' },
+      { type: 'practical', title: 'Mas informacion al piloto', description: 'Indicadores de reversa, neutro, motor y combustible.' },
+      { type: 'emotional', title: 'Estilo Raptor', description: 'Imagen agresiva y divertida para nuevos pilotos.' },
+    ],
+    priceNote:
+      '*No incluye gastos de inscripcion por su naturaleza. Precios promocion sujetos a cambios, restricciones y condiciones en punto de venta.',
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: false,
+    sortOrder: 2,
+  },
+  {
+    _id: 'yfz450r',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'YFZ450R',
+    slug: 'yfz450r',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 7890000,
+    currency: 'CRC',
+    formattedPrice: '₡7.890.000',
+    tagline: 'Innumerables veces Campeon de Costa Rica',
+    images: imgs('YFZ450R', 'yfz450r'),
+    heroImage: img('YFZ450R', 'yfz450r'),
+    shortDescription:
+      'El YFZ450R es el ATV deportivo tecnologicamente mas avanzado, con motor de 449 cc, inyeccion y chasis liviano de competencia.',
+    description:
+      'Innumerables veces campeon de Costa Rica, combina alta tecnologia, 5 valvulas de titanio, potencia race-ready y una plataforma profesional de aluminio fundido y acero para desempeno ganador.',
+    keySpecs: [
+      { icon: 'engine', value: '449 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'DOHC 4T, 5 valvulas', label: 'Motor' },
+      { icon: 'transmission', value: '5 velocidades', label: 'Transmision' },
+      { icon: 'weight', value: '184 kg', label: 'Peso' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor',
+        specs: [
+          { name: 'Tipo', value: 'Race-Ready, enfriado por liquido, DOHC 4 tiempos, 5 valvulas de titanio' },
+          { name: 'Cilindrada', value: '449 cc' },
+          { name: 'Transmision', value: '5 velocidades' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Llantas', value: 'Delantera AT21 x 7-10 / Trasera AT20 x 10-9' },
+          { name: 'Suspension', value: 'Delantera independiente banada en Kashima con control de rebote y trasera monocross con control de rebote' },
+          { name: 'Frenos', value: 'Delantero doble disco hidraulico y trasero disco hidraulico wave style' },
+          { name: 'Peso total', value: '184 kg' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'emotional', title: 'ADN campeon', description: 'ATV ganador en competencia nacional.' },
+      { type: 'practical', title: 'Ingenieria race-ready', description: 'Motor de alto giro con tecnologia de competencia.' },
+      { type: 'practical', title: 'Chasis profesional', description: 'Estructura liviana para maxima precision y control.' },
+    ],
+    priceNote:
+      '*No incluye gastos de inscripcion por su naturaleza. Precios promocion sujetos a cambios, restricciones y condiciones en punto de venta.',
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: true,
+    sortOrder: 3,
+  },
+  {
+    _id: 'raptor-700r-se',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Raptor 700R SE',
+    slug: 'raptor-700r-se',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 8090000,
+    currency: 'CRC',
+    formattedPrice: '₡8.090.000',
+    tagline: 'Poder, estabilidad y excelentes suspensiones',
+    images: imgs('Raptor 700R SE', 'raptor-700r-se'),
+    heroImage: img('Raptor 700R SE', 'raptor-700r-se'),
+    shortDescription:
+      'Poder de gran calibre con motor de 689 cc, inyeccion electronica y chasis liviano de acero y aluminio para respuesta deportiva superior.',
+    description:
+      'La Raptor 700R SE combina gran potencia, suspension avanzada y manejo inspirado en YFZ. Su estructura liviana y resistente ofrece control sobresaliente en senderos exigentes.',
+    keySpecs: [
+      { icon: 'engine', value: '689 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Inyeccion electronica', label: 'Motor' },
+      { icon: 'transmission', value: '5 vel + reversa', label: 'Transmision' },
+      { icon: 'weight', value: '191 kg', label: 'Peso' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor',
+        specs: [
+          { name: 'Tipo', value: '4 tiempos, enfriado por liquido, 4 valvulas, inyeccion electronica' },
+          { name: 'Cilindrada', value: '689 cc' },
+          { name: 'Transmision', value: '5 velocidades con reversa' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Llantas', value: 'Delantera AT22 x 7-10 / Trasera AT20 x 10-9' },
+          { name: 'Suspension', value: 'Delantera independiente y trasera monocross, ambas con control de rebote' },
+          { name: 'Frenos', value: 'Delantero doble disco hidraulico y trasero disco hidraulico' },
+          { name: 'Peso total', value: '191 kg' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'emotional', title: 'Potencia dominante', description: 'El Raptor mas potente para conduccion deportiva extrema.' },
+      { type: 'practical', title: 'Chasis liviano', description: 'Estructura hibrida para agilidad y resistencia.' },
+      { type: 'practical', title: 'Suspension avanzada', description: 'Absorbe terreno duro sin perder control.' },
+    ],
+    priceNote: '*No incluyen accesorios. Precios promocion sujetos a cambios, restricciones y condiciones en punto de venta.',
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: true,
+    sortOrder: 4,
+  },
+  {
+    _id: 'kodiak-450-std',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Kodiak 450 STD',
+    slug: 'kodiak-450-std',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 7969000,
+    salePrice: 5650000,
+    currency: 'CRC',
+    formattedPrice: '₡7.969.000',
+    tagline: 'Hazlo todo',
+    images: imgs('Kodiak 450 STD', 'kodiak-450-std'),
+    heroImage: img('Kodiak 450 STD', 'kodiak-450-std'),
+    shortDescription:
+      'El Kodiak 450 ofrece transmision Ultramatic y traccion On-Command 2WD/4WD para capacidad real en terrenos dificiles.',
+    description:
+      'Construido desde cero para manejo preciso y maniobrable, con suspension independiente y gran comodidad para trabajo y aventura.',
+    keySpecs: [
+      { icon: 'engine', value: '421 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Inyectado SOHC', label: 'Motor' },
+      { icon: 'transmission', value: 'Ultramatic 2WD/4WD', label: 'Transmision' },
+      { icon: 'weight', value: '4x4', label: 'Traccion' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Transmision',
+        specs: [
+          { name: 'Motor', value: 'Inyectado, SOHC, 2 valvulas, enfriado por liquido' },
+          { name: 'Cilindrada', value: '421 cc' },
+          { name: 'Transmision', value: 'Automatico Ultramatic (H/L/N/R/P), correa en V, seleccion 2WD y 4WD' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Suspension', value: 'Delantera y trasera doble brazo independiente' },
+          { name: 'Frenos', value: 'Delantero disco hidraulico, trasero multidisco humedo en la transmision' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Capacidad utilitaria', description: 'Listo para trabajo duro en terreno complejo.' },
+      { type: 'practical', title: 'Conduccion estable', description: 'Chasis compacto para mejor control y maniobra.' },
+      { type: 'emotional', title: 'Versatilidad total', description: 'Rinde igual de bien en trabajo y tiempo libre.' },
+    ],
+    priceNote:
+      '*No incluyen accesorios. Precio valido para modelo 2025 hasta agotar existencias. Precio incluye gastos de inscripcion. Aplican restricciones.',
+    financing: {
+      eligible: true,
+      defaultDownPayment: 20,
+      defaultTerm: 60,
+      monthlyPayment: 155000,
+      termMonths: 60,
+    },
+    status: 'active',
+    featured: true,
+    sortOrder: 5,
+  },
+  {
+    _id: 'kodiak-450-eps',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Kodiak 450 EPS',
+    slug: 'kodiak-450-eps',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 8375000,
+    salePrice: 6400000,
+    currency: 'CRC',
+    formattedPrice: '₡8.375.000',
+    tagline: 'El arte de hacer lo extraordinario',
+    images: imgs('Kodiak 450 EPS', 'kodiak-450-eps'),
+    heroImage: img('Kodiak 450 EPS', 'kodiak-450-eps'),
+    shortDescription:
+      'Kodiak 450 EPS combina durabilidad Yamaha con direccion asistida para trabajar en condiciones extremas con mayor comodidad.',
+    description:
+      'Su sistema On-Command permite alternar entre 4x2 y 4x4 con un boton, y la transmision Ultramatic hace cada jornada mas relajada y eficiente.',
+    keySpecs: [
+      { icon: 'engine', value: '421 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Inyectado SOHC', label: 'Motor' },
+      { icon: 'transmission', value: 'Ultramatic 2WD/4WD', label: 'Transmision' },
+      { icon: 'weight', value: 'EPS', label: 'Direccion' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Transmision',
+        specs: [
+          { name: 'Motor', value: 'Inyectado, SOHC, 2 valvulas, enfriado por liquido' },
+          { name: 'Cilindrada', value: '421 cc' },
+          { name: 'Transmision', value: 'Automatico Ultramatic (H/L/N/R/P), correa en V, seleccion 2WD y 4WD' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Suspension', value: 'Delantera y trasera doble brazo independiente' },
+          { name: 'Frenos', value: 'Delantero disco hidraulico, trasero multidisco humedo en la transmision' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Direccion asistida EPS', description: 'Menor fatiga y mejor control en trabajo prolongado.' },
+      { type: 'practical', title: 'On-Command', description: 'Cambio facil entre 4x2 y 4x4 segun terreno.' },
+      { type: 'emotional', title: 'Hecho para durar', description: 'Durabilidad Yamaha para faenas exigentes.' },
+    ],
+    priceNote: '*No incluyen accesorios. Precio incluye gastos de inscripcion. Foto incluye accesorios adicionales no contemplados en el precio. Aplican restricciones.',
+    financing: {
+      eligible: true,
+      defaultDownPayment: 20,
+      defaultTerm: 60,
+      monthlyPayment: 175000,
+      termMonths: 60,
+    },
+    status: 'active',
+    featured: true,
+    sortOrder: 6,
+  },
+  {
+    _id: 'grizzly-700-xtr',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Grizzly 700 XTR',
+    slug: 'grizzly-700-xtr',
+    year: 2026,
+    category: { name: 'Cuadraciclos', slug: 'cuadraciclos', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 10290000,
+    currency: 'CRC',
+    formattedPrice: '₡10.290.000',
+    tagline: 'Una fuerza de la naturaleza',
+    images: imgs('Grizzly 700 XTR', 'grizzly-700-xtr'),
+    heroImage: img('Grizzly 700 XTR', 'grizzly-700-xtr'),
+    shortDescription:
+      'El Grizzly 700 XTR combina transmision Ultramatic, On-Command 2WD/4WD/bloqueo y direccion asistida para enfrentar el off-road mas complejo.',
+    description:
+      'Con frenos de disco en las 4 ruedas, suspension independiente ajustable e instrumentacion digital, entrega control, comodidad y capacidad real para trabajo y exploracion.',
+    keySpecs: [
+      { icon: 'engine', value: '686 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'SOHC 4T', label: 'Motor' },
+      { icon: 'transmission', value: 'Ultramatic + On-Command', label: 'Transmision' },
+      { icon: 'weight', value: 'EPS', label: 'Direccion' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Transmision',
+        specs: [
+          { name: 'Motor', value: 'Inyectado, SOHC, 4 tiempos, enfriado por liquido' },
+          { name: 'Cilindrada', value: '686 cc' },
+          { name: 'Transmision', value: 'Automatica Ultramatic (L/H/N/R/P), freno de motor en todas las ruedas' },
+          { name: 'Traccion', value: 'On-Command 2WD, 4WD y 4WD con bloqueo diferencial' },
+        ],
+      },
+      {
+        group: 'Chasis y Equipamiento',
+        specs: [
+          { name: 'Direccion', value: 'Electroasistida Yamaha' },
+          { name: 'Suspension', value: 'Delantera doble brazo y trasera brazo basculante, ambas con 5 posiciones de precarga' },
+          { name: 'Frenos', value: 'Delantero doble disco hidraulico y trasero disco hidraulico ventilado' },
+          { name: 'Otros', value: 'Instrumentacion digital, 3 compartimientos, faro LED y luz de trabajo halogena central' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Control total', description: 'Traccion seleccionable y bloqueo diferencial por boton.' },
+      { type: 'practical', title: 'Comodidad superior', description: 'Direccion asistida y suspension ajustable para largas jornadas.' },
+      { type: 'emotional', title: 'Lider off-road', description: 'Tecnologia Yamaha para explorar sin limites.' },
+    ],
+    financing: {
+      eligible: true,
+      defaultDownPayment: 20,
+      defaultTerm: 60,
+      monthlyPayment: 279000,
+      termMonths: 60,
+    },
+    status: 'active',
+    featured: true,
+    sortOrder: 7,
+  },
+  {
+    _id: 'wolverine-x4-850-xtr',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Wolverine X4 850 XT-R',
+    slug: 'wolverine-x4-850-xtr',
+    year: 2026,
+    category: { name: 'Mulas', slug: 'mulas', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 20400000,
+    currency: 'CRC',
+    formattedPrice: '₡20.400.000',
+    tagline: 'Tu Diversion X4',
+    images: imgs('Wolverine X4 850 XT-R', 'wolverine-x4-850-xtr'),
+    heroImage: img('Wolverine X4 850 XT-R', 'wolverine-x4-850-xtr'),
+    shortDescription:
+      'Edicion extrema para aventuras extremas, con comodidad para 4 adultos, neumaticos para terreno exigente y tecnologia Yamaha de alto nivel.',
+    description:
+      'Wolverine X4 850 XT-R ofrece equilibrio entre capacidad de trabajo, confort refinado y confianza en senderos. Es un companero ideal para aventura al aire libre.',
+    keySpecs: [
+      { icon: 'engine', value: '847 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Bicilindrico DOHC', label: 'Motor' },
+      { icon: 'transmission', value: 'Ultramatic 2WD/4WD', label: 'Transmision' },
+      { icon: 'weight', value: '4 pasajeros', label: 'Capacidad' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Transmision',
+        specs: [
+          { name: 'Motor', value: 'Bicilindrico, inyeccion electronica, enfriado por liquido, DOHC, 4 valvulas' },
+          { name: 'Cilindrada', value: '847 cc' },
+          { name: 'Transmision', value: 'Automatica Ultramatic con freno motor en todas las ruedas (L, H, N, R)' },
+          { name: 'Traccion', value: 'On-Command 2WD, 4WD y 4WD con bloqueo diferencial de 3 vias' },
+        ],
+      },
+      {
+        group: 'Chasis y Frenos',
+        specs: [
+          { name: 'Direccion', value: 'Asistida' },
+          { name: 'Suspension', value: 'Delantera y trasera independiente' },
+          { name: 'Frenos', value: 'Delantero y trasero doble disco hidraulico' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Aventura para cuatro', description: 'Asientos altos y gran espacio para 4 adultos.' },
+      { type: 'practical', title: 'Capacidad real en terreno duro', description: 'Neumaticos y plataforma listos para exigencia extrema.' },
+      { type: 'emotional', title: 'Companero outdoor', description: 'Balance ideal entre trabajo y diversion.' },
+    ],
+    priceNote: '*Precio modelo 2024. Precios promocion sujetos a cambios, restricciones y condiciones en punto de venta.',
+    financing: {
+      eligible: true,
+      defaultDownPayment: 20,
+      defaultTerm: 60,
+      monthlyPayment: 551000,
+      termMonths: 60,
+    },
+    status: 'active',
+    featured: true,
+    sortOrder: 8,
+  },
+  {
+    _id: 'wolverine-x4-1000-xtr',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'Wolverine X4 1000 XTR',
+    slug: 'wolverine-x4-1000-xtr',
+    year: 2026,
+    category: { name: 'Mulas', slug: 'mulas', parentCategory: 'cuadraciclos' },
+    productType: 'cuadraciclo',
+    price: 23890000,
+    currency: 'CRC',
+    formattedPrice: '₡23.890.000',
+    tagline: 'Aventura al aire libre',
+    images: imgs('Wolverine X4 1000 XTR', 'wolverine-x4-1000-xtr'),
+    heroImage: img('Wolverine X4 1000 XTR', 'wolverine-x4-1000-xtr'),
+    shortDescription:
+      'El Wolverine RMAX4 1000 Compact XT-R esta disenado para desempeno real sin sacrificar confort ni versatilidad.',
+    description:
+      'Integra motor 999 cc, On-Command 4WD con bloqueo diferencial y modo Turf, direccion EPS seleccionable, modos D-Mode y suspension FOX QS3. Puede cargar hasta 600 lb y remolcar 2,000 lb.',
+    keySpecs: [
+      { icon: 'engine', value: '999 cc', label: 'Cilindrada' },
+      { icon: 'power', value: 'Bicilindrico DOHC', label: 'Motor' },
+      { icon: 'transmission', value: 'On-Command 2WD/4WD', label: 'Traccion' },
+      { icon: 'weight', value: '2,000 lb', label: 'Remolque' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Conduccion',
+        specs: [
+          { name: 'Motor', value: 'Bicilindrico, inyeccion electronica, enfriado por liquido, DOHC, 4 valvulas' },
+          { name: 'Cilindrada', value: '999 cc' },
+          { name: 'Transmision', value: 'Automatica con freno motor en todas las ruedas' },
+          { name: 'Traccion', value: 'On-Command 2WD/4WD/bloqueo + modo Turf' },
+          { name: 'Direccion', value: 'Asistida EPS seleccionable' },
+        ],
+      },
+      {
+        group: 'Chasis y Capacidad',
+        specs: [
+          { name: 'Suspension', value: 'Doble horquilla independiente con barra estabilizadora, amortiguadores FOX 2.0 QS3' },
+          { name: 'Ancho total', value: '64 pulgadas' },
+          { name: 'Neumaticos', value: 'GBC Dirt Commander 29"' },
+          { name: 'Capacidad de carga', value: '600 lb' },
+          { name: 'Capacidad de remolque', value: '2,000 lb' },
+          { name: 'Arranque', value: 'Electrico' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Potencia y control premium', description: 'Motor 999 cc con modos de manejo y direccion EPS seleccionable.' },
+      { type: 'practical', title: 'Suspension de alto nivel', description: 'FOX QS3 para estabilidad en condiciones exigentes.' },
+      { type: 'emotional', title: 'Listo para todo', description: 'Combina trabajo, recreacion y tecnologia en un solo side-by-side.' },
+    ],
+    financing: {
+      eligible: true,
+      defaultDownPayment: 20,
+      defaultTerm: 60,
+      monthlyPayment: 645000,
+      termMonths: 60,
+    },
+    status: 'active',
+    featured: true,
+    sortOrder: 9,
+  },
+
+  // ─────────────────────────────────────────────
+  // MARINO - MOTORES FUERA DE BORDA
+  // ─────────────────────────────────────────────
+  {
+    _id: 'e8dmhs',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E8DMHS',
+    slug: 'e8dmhs',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E8DMHS', 'e8dmhs'),
+    heroImage: img('E8DMHS', 'e8dmhs'),
+    shortDescription: 'Motor fuera de borda Yamaha E8DMHS.',
+    description: 'Motor fuera de borda Yamaha E8DMHS de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 1,
+  },
+  {
+    _id: 'e15dmhl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E15DMHL',
+    slug: 'e15dmhl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E15DMHL', 'e15dmhl'),
+    heroImage: img('E15DMHL', 'e15dmhl'),
+    shortDescription: 'Motor fuera de borda Yamaha E15DMHL.',
+    description: 'Motor fuera de borda Yamaha E15DMHL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 2,
+  },
+  {
+    _id: 'e15dmhs',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E15DMHS',
+    slug: 'e15dmhs',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E15DMHS', 'e15dmhs'),
+    heroImage: img('E15DMHS', 'e15dmhs'),
+    shortDescription: 'Motor fuera de borda Yamaha E15DMHS.',
+    description: 'Motor fuera de borda Yamaha E15DMHS de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 3,
+  },
+  {
+    _id: 'e25bmhl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E25BMHL',
+    slug: 'e25bmhl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E25BMHL', 'e25bmhl'),
+    heroImage: img('E25BMHL', 'e25bmhl'),
+    shortDescription: 'Motor fuera de borda Yamaha E25BMHL.',
+    description: 'Motor fuera de borda Yamaha E25BMHL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 4,
+  },
+  {
+    _id: 'e40xmhs',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E40XMHS',
+    slug: 'e40xmhs',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E40XMHS', 'e40xmhs'),
+    heroImage: img('E40XMHS', 'e40xmhs'),
+    shortDescription: 'Motor fuera de borda Yamaha E40XMHS.',
+    description: 'Motor fuera de borda Yamaha E40XMHS de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 5,
+  },
+  {
+    _id: 'e40xmhl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E40XMHL',
+    slug: 'e40xmhl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E40XMHL', 'e40xmhl'),
+    heroImage: img('E40XMHL', 'e40xmhl'),
+    shortDescription: 'Motor fuera de borda Yamaha E40XMHL.',
+    description: 'Motor fuera de borda Yamaha E40XMHL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 6,
+  },
+  {
+    _id: 'e60hmhdl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E60HMHDL',
+    slug: 'e60hmhdl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E60HMHDL', 'e60hmhdl'),
+    heroImage: img('E60HMHDL', 'e60hmhdl'),
+    shortDescription: 'Motor fuera de borda Yamaha E60HMHDL.',
+    description: 'Motor fuera de borda Yamaha E60HMHDL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 7,
+  },
+  {
+    _id: 'e75bmhdl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'E75BMHDL',
+    slug: 'e75bmhdl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('E75BMHDL', 'e75bmhdl'),
+    heroImage: img('E75BMHDL', 'e75bmhdl'),
+    shortDescription: 'Motor fuera de borda Yamaha E75BMHDL.',
+    description: 'Motor fuera de borda Yamaha E75BMHDL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 8,
+  },
+  {
+    _id: '200aetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: '200AETX',
+    slug: '200aetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('200AETX', '200aetx'),
+    heroImage: img('200AETX', '200aetx'),
+    shortDescription: 'Motor fuera de borda Yamaha 200AETX.',
+    description: 'Motor fuera de borda Yamaha 200AETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 9,
+  },
+  {
+    _id: 'l200aetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'L200AETX',
+    slug: 'l200aetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('L200AETX', 'l200aetx'),
+    heroImage: img('L200AETX', 'l200aetx'),
+    shortDescription: 'Motor fuera de borda Yamaha L200AETX.',
+    description: 'Motor fuera de borda Yamaha L200AETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 10,
+  },
+  {
+    _id: 'f25dmhs',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F25DMHS',
+    slug: 'f25dmhs',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F25DMHS', 'f25dmhs'),
+    heroImage: img('F25DMHS', 'f25dmhs'),
+    shortDescription: 'Motor fuera de borda Yamaha F25DMHS.',
+    description: 'Motor fuera de borda Yamaha F25DMHS de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 11,
+  },
+  {
+    _id: 'f25dmhl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F25DMHL',
+    slug: 'f25dmhl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F25DMHL', 'f25dmhl'),
+    heroImage: img('F25DMHL', 'f25dmhl'),
+    shortDescription: 'Motor fuera de borda Yamaha F25DMHL.',
+    description: 'Motor fuera de borda Yamaha F25DMHL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 12,
+  },
+  {
+    _id: 'ft60gehdl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FT60GEHDL',
+    slug: 'ft60gehdl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FT60GEHDL', 'ft60gehdl'),
+    heroImage: img('FT60GEHDL', 'ft60gehdl'),
+    shortDescription: 'Motor fuera de borda Yamaha FT60GEHDL.',
+    description: 'Motor fuera de borda Yamaha FT60GEHDL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 13,
+  },
+  {
+    _id: 'f75aetl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F75AETL',
+    slug: 'f75aetl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F75AETL', 'f75aetl'),
+    heroImage: img('F75AETL', 'f75aetl'),
+    shortDescription: 'Motor fuera de borda Yamaha F75AETL.',
+    description: 'Motor fuera de borda Yamaha F75AETL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 14,
+  },
+  {
+    _id: '85aetl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: '85AETL',
+    slug: '85aetl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['2 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('85AETL', '85aetl'),
+    heroImage: img('85AETL', '85aetl'),
+    shortDescription: 'Motor fuera de borda Yamaha 85AETL.',
+    description: 'Motor fuera de borda Yamaha 85AETL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '2 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 15,
+  },
+  {
+    _id: 'f90cetl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F90CETL',
+    slug: 'f90cetl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F90CETL', 'f90cetl'),
+    heroImage: img('F90CETL', 'f90cetl'),
+    shortDescription: 'Motor fuera de borda Yamaha F90CETL.',
+    description: 'Motor fuera de borda Yamaha F90CETL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 16,
+  },
+  {
+    _id: 'f115betl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F115BETL',
+    slug: 'f115betl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F115BETL', 'f115betl'),
+    heroImage: img('F115BETL', 'f115betl'),
+    shortDescription: 'Motor fuera de borda Yamaha F115BETL.',
+    description: 'Motor fuera de borda Yamaha F115BETL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 17,
+  },
+  {
+    _id: 'f115betx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F115BETX',
+    slug: 'f115betx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F115BETX', 'f115betx'),
+    heroImage: img('F115BETX', 'f115betx'),
+    shortDescription: 'Motor fuera de borda Yamaha F115BETX.',
+    description: 'Motor fuera de borda Yamaha F115BETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 18,
+  },
+  {
+    _id: 'fl115betx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL115BETX',
+    slug: 'fl115betx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL115BETX', 'fl115betx'),
+    heroImage: img('FL115BETX', 'fl115betx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL115BETX.',
+    description: 'Motor fuera de borda Yamaha FL115BETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 19,
+  },
+  {
+    _id: 'f130aetl',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F130AETL',
+    slug: 'f130aetl',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F130AETL', 'f130aetl'),
+    heroImage: img('F130AETL', 'f130aetl'),
+    shortDescription: 'Motor fuera de borda Yamaha F130AETL.',
+    description: 'Motor fuera de borda Yamaha F130AETL de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 20,
+  },
+  {
+    _id: 'f130aetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F130AETX',
+    slug: 'f130aetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F130AETX', 'f130aetx'),
+    heroImage: img('F130AETX', 'f130aetx'),
+    shortDescription: 'Motor fuera de borda Yamaha F130AETX.',
+    description: 'Motor fuera de borda Yamaha F130AETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 21,
+  },
+  {
+    _id: 'fl130aetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL130AETX',
+    slug: 'fl130aetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL130AETX', 'fl130aetx'),
+    heroImage: img('FL130AETX', 'fl130aetx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL130AETX.',
+    description: 'Motor fuera de borda Yamaha FL130AETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 22,
+  },
+  {
+    _id: 'f150fetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F150FETX',
+    slug: 'f150fetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F150FETX', 'f150fetx'),
+    heroImage: img('F150FETX', 'f150fetx'),
+    shortDescription: 'Motor fuera de borda Yamaha F150FETX.',
+    description: 'Motor fuera de borda Yamaha F150FETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 23,
+  },
+  {
+    _id: 'fl150fetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL150FETX',
+    slug: 'fl150fetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL150FETX', 'fl150fetx'),
+    heroImage: img('FL150FETX', 'fl150fetx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL150FETX.',
+    description: 'Motor fuera de borda Yamaha FL150FETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 24,
+  },
+  {
+    _id: 'f200fetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F200FETX',
+    slug: 'f200fetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F200FETX', 'f200fetx'),
+    heroImage: img('F200FETX', 'f200fetx'),
+    shortDescription: 'Motor fuera de borda Yamaha F200FETX.',
+    description: 'Motor fuera de borda Yamaha F200FETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 25,
+  },
+  {
+    _id: 'fl200fetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL200FETX',
+    slug: 'fl200fetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL200FETX', 'fl200fetx'),
+    heroImage: img('FL200FETX', 'fl200fetx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL200FETX.',
+    description: 'Motor fuera de borda Yamaha FL200FETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 26,
+  },
+  {
+    _id: 'f250hetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F250HETX',
+    slug: 'f250hetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F250HETX', 'f250hetx'),
+    heroImage: img('F250HETX', 'f250hetx'),
+    shortDescription: 'Motor fuera de borda Yamaha F250HETX.',
+    description: 'Motor fuera de borda Yamaha F250HETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 27,
+  },
+  {
+    _id: 'fl250hetx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL250HETX',
+    slug: 'fl250hetx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL250HETX', 'fl250hetx'),
+    heroImage: img('FL250HETX', 'fl250hetx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL250HETX.',
+    description: 'Motor fuera de borda Yamaha FL250HETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 28,
+  },
+  {
+    _id: 'f300getx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F300GETX',
+    slug: 'f300getx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F300GETX', 'f300getx'),
+    heroImage: img('F300GETX', 'f300getx'),
+    shortDescription: 'Motor fuera de borda Yamaha F300GETX.',
+    description: 'Motor fuera de borda Yamaha F300GETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 29,
+  },
+  {
+    _id: 'fl300getx',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FL300GETX',
+    slug: 'fl300getx',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('FL300GETX', 'fl300getx'),
+    heroImage: img('FL300GETX', 'fl300getx'),
+    shortDescription: 'Motor fuera de borda Yamaha FL300GETX.',
+    description: 'Motor fuera de borda Yamaha FL300GETX de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 30,
+  },
+  {
+    _id: 'f425aet2x',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'F425AET2X',
+    slug: 'f425aet2x',
+    year: 2026,
+    category: { name: 'Motores Fuera de Borda', slug: 'motores-fuera-de-borda', parentCategory: 'marino' },
+    productType: 'motor_fuera_borda',
+    price: 0,
+    currency: 'CRC',
+    formattedPrice: 'Consultar',
+    tags: ['4 Tiempos'],
+    tagline: 'Motor fuera de borda Yamaha',
+    images: imgs('F425AET2X', 'f425aet2x'),
+    heroImage: img('F425AET2X', 'f425aet2x'),
+    shortDescription: 'Motor fuera de borda Yamaha F425AET2X.',
+    description: 'Motor fuera de borda Yamaha F425AET2X de alta confiabilidad para uso marino.',
+    keySpecs: [
+      { icon: 'engine', value: '4 Tiempos', label: 'Tipo' },
+      { icon: 'power', value: 'Consultar', label: 'Potencia' },
+    ],
+    fullSpecs: [],
+    benefits: [],
+    financing: { eligible: false, defaultDownPayment: 100, defaultTerm: 1 },
+    status: 'active',
+    featured: false,
+    sortOrder: 31,
+  },
+
+  // ─────────────────────────────────────────────
+  // MARINO - WAVERUNNER
+  // ─────────────────────────────────────────────
+  {
+    _id: 'fx-cruiser-svho',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'FX Cruiser SVHO',
+    slug: 'fx-cruiser-svho',
+    year: 2026,
+    category: { name: 'Waverunner', slug: 'waverunner', parentCategory: 'marino' },
+    productType: 'waverunner',
+    price: 13890000,
+    salePrice: 11990000,
+    currency: 'CRC',
+    formattedPrice: '₡13.890.000',
+    tagline: 'Velocidad, confort y tecnología',
+    images: imgs('FX Cruiser SVHO', 'fx-cruiser-svho'),
+    heroImage: img('FX Cruiser SVHO', 'fx-cruiser-svho'),
+    shortDescription: 'La máxima expresión de potencia y confort en el agua, con motor sobrealimentado SVHO y sistema RiDE®.',
+    description: 'FX Cruiser SVHO combina aceleración brutal, estabilidad y control con su motor SVHO de 1812 cc, casco NanoXcel2® y sistema RiDE®. Incorpora detalles premium como asiento ergonómico para 3 personas, audio Bluetooth integrado y amplia capacidad de almacenamiento para aventuras largas en el agua.',
+    priceNote:
+      'Precios promoción incluyen gastos de inscripción, no acumulables con otras promociones. Válidos hasta el 30 de Abril 2026. Aplican restricciones; ver condiciones en el punto de venta. Cuota referencial sujeta a aprobación crediticia.',
+    keySpecs: [
+      { icon: 'engine', value: '1812cc', label: 'Motor' },
+      { icon: 'power', value: 'SVHO', label: 'Sobrealimentado' },
+      { icon: 'transmission', value: 'RiDE®', label: 'Control' },
+      { icon: 'weight', value: '70 L', label: 'Tanque' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Rendimiento',
+        specs: [
+          { name: 'Motor', value: 'SVHO sobrealimentado, 4 cilindros, 1812 cc' },
+          { name: 'Sistema de control', value: 'RiDE® para control preciso' },
+          { name: 'Turbina', value: 'Alta presión para aceleración inmediata' },
+        ],
+      },
+      {
+        group: 'Construcción y Confort',
+        specs: [
+          { name: 'Casco', value: 'NanoXcel2® ultraligero y resistente' },
+          { name: 'Asientos', value: 'Cruiser ergonómico para 3 personas' },
+          { name: 'Audio', value: 'Bluetooth integrado, resistente al agua' },
+        ],
+      },
+      {
+        group: 'Equipamiento',
+        specs: [
+          { name: 'Pantalla', value: 'LCD a color con instrumentación completa' },
+          { name: 'Combustible', value: 'Depósito de 70 L' },
+          { name: 'Almacenamiento', value: 'En proa, consola y bajo asiento' },
+          { name: 'Remolque', value: 'Gancho reforzado para deportes acuáticos' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'emotional', title: 'Potencia SVHO', description: 'Aceleración contundente y velocidad superior para una experiencia premium.' },
+      { type: 'practical', title: 'Control RiDE®', description: 'Maniobras más seguras y precisas en distintas condiciones de navegación.' },
+      { type: 'practical', title: 'Confort total', description: 'Asiento Cruiser y ergonomía pensada para largas travesías.' },
+      { type: 'emotional', title: 'Lujo Yamaha', description: 'Acabados premium, tecnología y presencia de alto nivel en el agua.' },
+    ],
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: true,
+    sortOrder: 1,
+  },
+  {
+    _id: 'vx1050-c',
+    _updatedAt: '2026-04-16T00:00:00.000Z',
+    name: 'VX1050 C',
+    slug: 'vx1050-c',
+    year: 2026,
+    category: { name: 'Waverunner', slug: 'waverunner', parentCategory: 'marino' },
+    productType: 'waverunner',
+    price: 7900000,
+    currency: 'CRC',
+    formattedPrice: '₡7.900.000',
+    tagline: 'Duradero y divertido',
+    images: imgs('VX1050 C', 'vx1050-c'),
+    heroImage: img('VX1050 C', 'vx1050-c'),
+    shortDescription: 'Diseño deportivo, excelente ahorro y mantenimiento reducido con la confiabilidad Yamaha WaveRunner.',
+    description: 'VX1050 C ofrece potencia, diversión y versatilidad con motor inyectado de 1049 cc, casco ligero y resistente, turbina HyperFlow y capacidad para 3 personas. Es una WaveRunner reconocida mundialmente por su confiabilidad y rendimiento completo.',
+    priceNote:
+      'Precios promoción incluyen gastos de inscripción, no acumulables con otras promociones. Válidos hasta el 30 de Abril 2026. Aplican restricciones; ver condiciones en el punto de venta. Cuota referencial sujeta a aprobación crediticia.',
+    keySpecs: [
+      { icon: 'engine', value: '1049cc', label: 'Motor' },
+      { icon: 'power', value: '3 cilindros', label: 'Inyectado' },
+      { icon: 'weight', value: '70 L', label: 'Tanque' },
+      { icon: 'transmission', value: '3 personas', label: 'Capacidad' },
+    ],
+    fullSpecs: [
+      {
+        group: 'Motor y Rendimiento',
+        specs: [
+          { name: 'Motor', value: 'Inyectado, 3 cilindros, 1049 cc' },
+          { name: 'Turbina', value: 'Compacta de alta presión HyperFlow' },
+          { name: 'Uso', value: 'Recreativo y deportivo versátil' },
+        ],
+      },
+      {
+        group: 'Construcción y Confort',
+        specs: [
+          { name: 'Casco', value: 'Ligero, fuerte y resistente' },
+          { name: 'Asientos', value: 'Cómodo, capacidad para 3 personas' },
+          { name: 'Instrumentación', value: 'Tacómetro, combustible y horas de uso' },
+        ],
+      },
+      {
+        group: 'Equipamiento',
+        specs: [
+          { name: 'Combustible', value: 'Depósito de 70 L' },
+          { name: 'Remolque', value: 'Gancho resistente para deportes acuáticos' },
+        ],
+      },
+    ],
+    benefits: [
+      { type: 'practical', title: 'Mantenimiento reducido', description: 'Plataforma confiable y eficiente para uso continuo.' },
+      { type: 'practical', title: 'Gran autonomía', description: 'Depósito de 70 L para disfrutar más tiempo en el agua.' },
+      { type: 'emotional', title: 'Diversión garantizada', description: 'Potencia y manejo balanceado para salidas recreativas.' },
+      { type: 'emotional', title: 'Confiabilidad Yamaha', description: 'Respaldo de una WaveRunner con reputación mundial.' },
+    ],
+    financing: { eligible: true, defaultDownPayment: 20, defaultTerm: 60 },
+    status: 'active',
+    featured: true,
+    sortOrder: 2,
+  },
 ];
 
 const ALSO_IN_CATEGORY: Record<string, string[]> = {
@@ -2490,16 +4119,871 @@ const ALSO_IN_CATEGORY: Record<string, string[]> = {
   'wr450f': ['enduro'],
 };
 
+const SANITY_PRODUCTS_QUERY = `*[_type == "product"] | order(sortOrder asc, name asc) {
+  _id,
+  _updatedAt,
+  name,
+  "slug": slug.current,
+  year,
+  productType,
+  price,
+  salePrice,
+  currency,
+  formattedPrice,
+  tags,
+  tagline,
+  shortDescription,
+  description,
+  keySpecs,
+  fullSpecs,
+  benefits,
+  financing,
+  status,
+  featured,
+  sortOrder,
+  priceNote,
+  category->{
+    name,
+    "slug": slug.current,
+    parentCategory
+  },
+  heroImage {
+    alt,
+    asset->{
+      url,
+      metadata { dimensions { width, height } }
+    }
+  },
+  images[] {
+    alt,
+    asset->{
+      url,
+      metadata { dimensions { width, height } }
+    }
+  }
+}`;
+
+const SANITY_ENABLED = Boolean(process.env.SANITY_PROJECT_ID && process.env.SANITY_PROJECT_ID !== 'mock');
+
+const OUTBOARD_PRODUCT_COPY: Record<string, string> = {
+  '200aetx': 'Reconocido por su resistencia, confiabilidad y facilidad de mantenimiento, ha probado ser el mas popular en los mares, rios y lagos en todo el mundo, siendo aplicado desde la pesca hasta el transporte.',
+  '85aetl': 'Motor portatil de 3 cilindros y 85 caballos de potencia, con una excelente relacion peso/potencia, perfecto para viajes en botes pequenos a alta velocidad.',
+  'e15dmhl': 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+  'e15dmhs': 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+  'e25bmhl': 'Motor enduro con excelente relacion peso-potencia, ideal para fanaticos de la velocidad que requieren propulsar pequenas embarcaciones.',
+  'e40xmhl': 'Uno de los favoritos de los ticos. Combina la legendaria durabilidad de Yamaha con maximo rendimiento y consumo eficiente de combustible, potencia sobresaliente y gran comodidad por su bajo nivel de ruido y vibraciones.',
+  'e40xmhs': 'Uno de los favoritos de los ticos. Combina la legendaria durabilidad de Yamaha con maximo rendimiento y consumo eficiente de combustible, potencia sobresaliente y gran comodidad por su bajo nivel de ruido y vibraciones.',
+  'e60hmhdl': 'Motor enduro para trabajo pesado, portatil, de facil operacion y mantenimiento, con interruptor de apagado de emergencia.',
+  'e75bmhdl': 'Motor enduro para trabajo pesado. Opcion con gran relacion precio/potencia para botes de mandos manuales, ideal para uso comercial de media potencia.',
+  e8dmhs: 'Desarrollado especialmente para atender exigentes demandas de uso comercial, por eso pertenece a la categoria Enduro.',
+  'f115betl': 'Excelente empuje para deportes acuaticos en lagos y mar. Su sistema EFI permite aceleracion rapida y suave, con menor consumo y bajas emisiones.',
+  'f115betx': 'Excelente empuje para deportes acuaticos en lagos y mar. Su sistema EFI permite aceleracion rapida y suave, con menor consumo y bajas emisiones.',
+  'f130aetl': 'Se caracteriza por su diseno elegante y optimo rendimiento. Es versatil, con excelente relacion peso-potencia, ideal para una amplia gama de actividades.',
+  'f130aetx': 'Se caracteriza por su diseno elegante y optimo rendimiento. Es versatil, con excelente relacion peso-potencia, ideal para una amplia gama de actividades.',
+  'f150fetx': 'Uno de los mejores modelos de 150 hp para uso comercial. Apto para trabajo pesado, transporte en rios y botes de placer en aguas abiertas.',
+  'f200fetx': 'Con impresionante relacion potencia-peso y direccion integrada, este cuatro en linea de 200 hp es ideal para embarcaciones pequenas y medianas.',
+  'f250hetx': 'Apto para trabajo pesado, ideal para aplicaciones de transporte y botes de placer. Sus componentes brindan mayor resistencia a la corrosion y abrasion.',
+  'f25dmhl': 'Motor pequeno y compacto que ofrece la potencia necesaria para trabajo diario de pesca y transporte. Solucion ideal para uso comercial o recreativo.',
+  'f25dmhs': 'Motor pequeno y compacto que ofrece la potencia necesaria para trabajo diario de pesca y transporte. Solucion ideal para uso comercial o recreativo.',
+  'f300getx': 'Motor capaz de desarrollar gran potencia y altas velocidades gracias a su reducido peso. Disenado para empujar embarcaciones grandes con varios motores.',
+  'f425aet2x': 'El primer 4 tiempos de inyeccion directa con direccion electronica integral y un nuevo nivel de empuje, torque y velocidad en retroceso.',
+  'f75aetl': 'Con 16 valvulas y sistema DOHC, esta disenado para gran aceleracion y precision. Su inyeccion multipunto ofrece arranques confiables y eficiencia de combustible.',
+  'f90cetl': 'Totalmente renovado para mejorar la experiencia de navegacion. Ahora mas ligero y potente, con mejor desempeno y torque excepcional.',
+  'fl115betx': 'Excelente empuje para deportes acuaticos en lagos y mar. Su sistema EFI permite aceleracion rapida y suave, con menor consumo y bajas emisiones.',
+  'fl130aetx': 'Se caracteriza por su diseno elegante y optimo rendimiento. Es versatil, con excelente relacion peso-potencia, ideal para una amplia gama de actividades.',
+  'fl150fetx': 'Uno de los mejores modelos de 150 hp para uso comercial. Apto para trabajo pesado, transporte en rios y botes de placer en aguas abiertas.',
+  'fl200fetx': 'Con impresionante relacion potencia-peso y direccion integrada, este cuatro en linea de 200 hp es ideal para embarcaciones pequenas y medianas.',
+  'fl250hetx': 'Apto para trabajo pesado, ideal para aplicaciones de transporte y botes de placer. Sus componentes brindan mayor resistencia a la corrosion y abrasion.',
+  'fl300getx': 'Motor capaz de desarrollar gran potencia y altas velocidades gracias a su reducido peso. Disenado para empujar embarcaciones grandes con varios motores.',
+  'ft60gehdl': 'Modelo de inyeccion electronica con instrumento digital que ofrece menor consumo de combustible y bajas emisiones, con transmision de alto empuje.',
+  'l200aetx': 'Reconocido por su resistencia, confiabilidad y facilidad de mantenimiento, ha probado ser el mas popular en los mares, rios y lagos en todo el mundo, siendo aplicado desde la pesca hasta el transporte.',
+};
+
+const OUTBOARD_LEGAL_NOTE =
+  'Para precios de motores fuera de borda, consultar con un ejecutivo. Precios y condiciones sujetos a cambios y restricciones en punto de venta.';
+
+type OutboardRichDetail = {
+  tagline: string;
+  summary: string;
+  description: string;
+  specs: Array<{ name: string; value: string }>;
+};
+
+const OUTBOARD_RICH_DETAILS: Record<string, OutboardRichDetail> = {
+  e8dmhs: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Desarrollado para exigentes demandas de uso comercial; pertenece a la categoria Enduro.',
+    description: 'Este motor fue desarrollado especialmente para atender exigentes demandas de uso comercial por eso pertenece a la categoria Enduro.',
+    specs: [
+      { name: 'Motor', value: '2 cilindros, 2 tiempos' },
+      { name: 'Desplazamiento', value: '165 cc' },
+      { name: 'Potencia de salida', value: '8 hp @ 4,500 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,200 +/- 1,300 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:10' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '29 kg' },
+    ],
+  },
+  e15dmhl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+    description: 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 2 cilindros' },
+      { name: 'Desplazamiento', value: '246 cc' },
+      { name: 'Potencia de salida', value: '15 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,050 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Pata', value: 'Larga' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '41 kg' },
+    ],
+  },
+  e15dmhs: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+    description: 'Economia y resistencia para usos comerciales, de pesca y transporte.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 2 cilindros' },
+      { name: 'Desplazamiento', value: '246 cc' },
+      { name: 'Potencia de salida', value: '15 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,050 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '40 kg' },
+    ],
+  },
+  e25bmhl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor enduro con excelente relacion peso-potencia para pequenas embarcaciones.',
+    description: 'Motor enduro, con excelente relacion peso-potencia. Ideal para fanaticos a la velocidad que requieren propulsar pequenas embarcaciones.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 2 cilindros' },
+      { name: 'Desplazamiento', value: '496 cc' },
+      { name: 'Potencia de salida', value: '25 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,100 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Pata', value: 'Larga' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '55 kg' },
+    ],
+  },
+  e40xmhs: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Favorito por su durabilidad, potencia y comodidad con bajo ruido y vibraciones.',
+    description: 'Uno de los favoritos de los ticos. Combina la legendaria durabilidad de Yamaha con rendimiento, ahorro de combustible y gran comodidad.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 2 cilindros' },
+      { name: 'Desplazamiento', value: '703 cc' },
+      { name: 'Potencia de salida', value: '40 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,000 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Pata', value: 'Corta' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '72 kg' },
+    ],
+  },
+  e40xmhl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Favorito por su durabilidad, potencia y comodidad con bajo ruido y vibraciones.',
+    description: 'Uno de los favoritos de los ticos. Combina la legendaria durabilidad de Yamaha con rendimiento, ahorro de combustible y gran comodidad.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 2 cilindros' },
+      { name: 'Desplazamiento', value: '703 cc' },
+      { name: 'Potencia de salida', value: '40 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,000 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Pata', value: 'Larga' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '81 kg' },
+    ],
+  },
+  e60hmhdl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor enduro para trabajo pesado, portatil y de facil operacion.',
+    description: 'Motor enduro para trabajo pesado, portatil, de facil operacion y mantenimiento, con interruptor de apagado de emergencia.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 3 cilindros' },
+      { name: 'Desplazamiento', value: '849 cc' },
+      { name: 'Potencia de salida', value: '60 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '1,000 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '96 kg' },
+    ],
+  },
+  e75bmhdl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Relacion precio/potencia destacada para uso comercial de media potencia.',
+    description: 'Motor enduro para trabajo pesado, ideal para propulsar botes de mandos manuales en aplicaciones comerciales.',
+    specs: [
+      { name: 'Motor', value: '2 tiempos, 3 cilindros' },
+      { name: 'Desplazamiento', value: '1,140 cc' },
+      { name: 'Potencia de salida', value: '75 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '800 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Gas' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '112 kg' },
+    ],
+  },
+  '200aetx': {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Reconocido por resistencia, confiabilidad y facilidad de mantenimiento.',
+    description: 'Ha probado ser uno de los mas populares en mares, rios y lagos para pesca y transporte.',
+    specs: [
+      { name: 'Motor', value: 'V6' },
+      { name: 'Desplazamiento', value: '2,596 cc' },
+      { name: 'Potencia de salida', value: '200 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '700 +/- 25 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remoto' },
+      { name: 'Peso', value: '184 kg' },
+    ],
+  },
+  l200aetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Reconocido por resistencia, confiabilidad y facilidad de mantenimiento.',
+    description: 'Ha probado ser uno de los mas populares en mares, rios y lagos para pesca y transporte.',
+    specs: [
+      { name: 'Motor', value: 'V4' },
+      { name: 'Desplazamiento', value: '2,596 cc' },
+      { name: 'Potencia de salida', value: '200 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '700 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remoto' },
+      { name: 'Peso', value: '186 kg' },
+    ],
+  },
+  f25dmhs: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor pequeno y compacto para pesca, transporte y uso recreativo.',
+    description: 'Ofrece la potencia necesaria para trabajo diario con una solucion practica para uso comercial o recreativo.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 2 cilindros SOHC' },
+      { name: 'Desplazamiento', value: '498 cc' },
+      { name: 'Potencia de salida', value: '25 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '975 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '77 kg' },
+    ],
+  },
+  f25dmhl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor pequeno y compacto para pesca, transporte y uso recreativo.',
+    description: 'Ofrece la potencia necesaria para trabajo diario con una solucion practica para uso comercial o recreativo.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 2 cilindros SOHC' },
+      { name: 'Desplazamiento', value: '498 cc' },
+      { name: 'Potencia de salida', value: '25 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '975 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Manual' },
+      { name: 'Levante', value: 'Manual' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '86 kg' },
+    ],
+  },
+  ft60gehdl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Inyeccion electronica e instrumentacion digital para menor consumo y emisiones.',
+    description: 'Modelo con transmision de alto empuje para mejor rendimiento, ideal para trabajo continuo.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 4 cilindros SOHC' },
+      { name: 'Desplazamiento', value: '996 cc' },
+      { name: 'Potencia de salida', value: '60 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '750 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Gas' },
+      { name: 'Mandos', value: 'Brazo' },
+      { name: 'Peso', value: '116 kg' },
+    ],
+  },
+  f75aetl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor DOHC de 16 valvulas para gran aceleracion y precision.',
+    description: 'Cuenta con inyeccion electronica multipunto para arranques confiables y eficiencia de combustible.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros DOHC' },
+      { name: 'Desplazamiento', value: '1,596 cc' },
+      { name: 'Potencia de salida', value: '75 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '700 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '170 kg' },
+    ],
+  },
+  '85aetl': {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Motor portatil de 3 cilindros con excelente relacion peso/potencia.',
+    description: 'Perfecto para viajes en botes pequenos a alta velocidad.',
+    specs: [
+      { name: 'Motor', value: '3 cilindros, 2 tiempos' },
+      { name: 'Desplazamiento', value: '1,140 cc' },
+      { name: 'Potencia de salida', value: '85 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '800 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Pre-mezcla 50:1' },
+      { name: 'Sistema de induccion de combustible', value: 'Carburado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remoto' },
+      { name: 'Peso', value: '111 kg' },
+    ],
+  },
+  f90cetl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Yamaha F90 renovado: mas ligero y potente para mejor experiencia de navegacion.',
+    description: 'Cuenta con cuatro valvulas por cilindro para mayor eficiencia, torque y aceleracion excepcionales.',
+    specs: [
+      { name: 'Motor', value: '4 cilindros, 4 tiempos' },
+      { name: 'Desplazamiento', value: '1,596 cc' },
+      { name: 'Potencia de salida', value: '90 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 +/- 750 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyectado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'A distancia' },
+      { name: 'Peso', value: '170 kg' },
+    ],
+  },
+  f115betl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Excelente empuje para deportes acuaticos, con EFI para aceleracion suave y menor consumo.',
+    description: 'Rinde tanto en lagos como en mar con bajas emisiones y respuesta confiable.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,741 cc' },
+      { name: 'Potencia de salida', value: '115 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '750 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '186 kg' },
+    ],
+  },
+  f115betx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Excelente empuje para deportes acuaticos, con EFI para aceleracion suave y menor consumo.',
+    description: 'Rinde tanto en lagos como en mar con bajas emisiones y respuesta confiable.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,741 cc' },
+      { name: 'Potencia de salida', value: '115 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '750 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '195 kg' },
+    ],
+  },
+  fl115betx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Excelente empuje para deportes acuaticos, con EFI para aceleracion suave y menor consumo.',
+    description: 'Rinde tanto en lagos como en mar con bajas emisiones y respuesta confiable.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,741 cc' },
+      { name: 'Potencia de salida', value: '115 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '750 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '191 kg' },
+    ],
+  },
+  f130aetl: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Diseno elegante y rendimiento optimo con gran relacion peso/potencia.',
+    description: 'Motor versatil para amplia gama de actividades; combina potencia, suavidad y eficiencia.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,832 cc' },
+      { name: 'Potencia de salida', value: '130 hp @ 5,300 rpm' },
+      { name: 'Rango maximo', value: '5,300 - 6,300 rpm' },
+      { name: 'Regimen minimo', value: '700 - 800 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '180 kg' },
+    ],
+  },
+  f130aetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Diseno elegante y rendimiento optimo con gran relacion peso/potencia.',
+    description: 'Motor versatil para amplia gama de actividades; combina potencia, suavidad y eficiencia.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,832 cc' },
+      { name: 'Potencia de salida', value: '130 hp @ 5,300 rpm' },
+      { name: 'Rango maximo', value: '5,300 - 6,300 rpm' },
+      { name: 'Regimen minimo', value: '700 - 800 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '180 kg' },
+    ],
+  },
+  fl130aetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Diseno elegante y rendimiento optimo con gran relacion peso/potencia.',
+    description: 'Motor versatil para amplia gama de actividades; combina potencia, suavidad y eficiencia.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '1,832 cc' },
+      { name: 'Potencia de salida', value: '130 hp @ 5,300 rpm' },
+      { name: 'Rango maximo', value: '5,300 - 6,300 rpm' },
+      { name: 'Regimen minimo', value: '700 - 800 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '180 kg' },
+    ],
+  },
+  f150fetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Modelo de 150 hp ideal para uso comercial, transporte en rios y botes de placer.',
+    description: 'Su excelente relacion peso/potencia permite altas velocidades de forma suave, limpia y economica.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '2,670 cc' },
+      { name: 'Potencia de salida', value: '150 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '700 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '223 kg' },
+    ],
+  },
+  fl150fetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Modelo de 150 hp ideal para uso comercial, transporte en rios y botes de placer.',
+    description: 'Su excelente relacion peso/potencia permite altas velocidades de forma suave, limpia y economica.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '2,670 cc' },
+      { name: 'Potencia de salida', value: '150 hp @ 5,000 rpm' },
+      { name: 'Rango maximo', value: '4,500 - 5,500 rpm' },
+      { name: 'Regimen minimo', value: '700 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '223 kg' },
+    ],
+  },
+  f200fetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Cuatro en linea de 200 hp con excelente relacion potencia-peso y direccion integrada.',
+    description: 'Su VCT mejora eficiencia de admision y escape para aumentar torque en todo el rango de revoluciones.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '2,785 cc' },
+      { name: 'Potencia de salida', value: '200 hp @ 6,000 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 - 750 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '226 kg' },
+    ],
+  },
+  fl200fetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Cuatro en linea de 200 hp con excelente relacion potencia-peso y direccion integrada.',
+    description: 'Su VCT mejora eficiencia de admision y escape para aumentar torque en todo el rango de revoluciones.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, 16 valvulas, 4 cilindros en linea DOHC' },
+      { name: 'Desplazamiento', value: '2,785 cc' },
+      { name: 'Potencia de salida', value: '200 hp @ 6,000 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 - 750 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '226 kg' },
+    ],
+  },
+  f250hetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Apto para trabajo pesado y aplicaciones de transporte o placer.',
+    description: 'Sus anillos antiabrasion, bomba cromada y anodizado duro de la unidad inferior mejoran resistencia a corrosion y abrasion.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, V6, 24 valvulas DOHC' },
+      { name: 'Desplazamiento', value: '3,352 cc' },
+      { name: 'Potencia de salida', value: '250 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '283 kg' },
+    ],
+  },
+  fl250hetx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Apto para trabajo pesado y aplicaciones de transporte o placer.',
+    description: 'Sus anillos antiabrasion, bomba cromada y anodizado duro de la unidad inferior mejoran resistencia a corrosion y abrasion.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, V6, 24 valvulas DOHC' },
+      { name: 'Desplazamiento', value: '3,352 cc' },
+      { name: 'Potencia de salida', value: '250 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Sistema de combustible', value: 'Inyeccion electronica (EFI)' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'Remotos' },
+      { name: 'Peso', value: '283 kg' },
+    ],
+  },
+  f300getx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Gran potencia y altas velocidades con peso reducido para embarcaciones grandes.',
+    description: 'Su diseno atractivo y avances tecnologicos brindan una experiencia de navegacion placentera.',
+    specs: [
+      { name: 'Motor', value: '4 cilindros, 4 tiempos' },
+      { name: 'Desplazamiento', value: '4,169 cc' },
+      { name: 'Potencia de salida', value: '300 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 +/- 750 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyectado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'A distancia' },
+      { name: 'Peso', value: '265 kg' },
+    ],
+  },
+  fl300getx: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Gran potencia y altas velocidades con peso reducido para embarcaciones grandes.',
+    description: 'Su diseno atractivo y avances tecnologicos brindan una experiencia de navegacion placentera.',
+    specs: [
+      { name: 'Motor', value: '4 cilindros, 4 tiempos' },
+      { name: 'Desplazamiento', value: '4,169 cc' },
+      { name: 'Potencia de salida', value: '300 hp @ 5,500 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '650 +/- 750 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Carter humedo' },
+      { name: 'Sistema de induccion de combustible', value: 'Inyectado' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Levante', value: 'Hidraulico' },
+      { name: 'Mandos', value: 'A distancia' },
+      { name: 'Peso', value: '265 kg' },
+    ],
+  },
+  f425aet2x: {
+    tagline: 'Porque en el mar, no hay mecanicos. Yamaha.',
+    summary: 'Primer 4 tiempos de inyeccion directa con direccion electronica integral.',
+    description: 'Revolucion de rendimiento para barcos grandes con nuevo nivel de empuje, torque y velocidad en retroceso.',
+    specs: [
+      { name: 'Motor', value: '4 tiempos, V8, 32 valvulas, DOHC con VCT' },
+      { name: 'Desplazamiento', value: '5,559 cc' },
+      { name: 'Potencia de salida', value: '425 hp @ 6,000 rpm' },
+      { name: 'Rango maximo', value: '5,000 - 6,000 rpm' },
+      { name: 'Regimen minimo', value: '750 +/- 50 rpm' },
+      { name: 'Sistema de lubricacion', value: 'Por carter humedo' },
+      { name: 'Arranque', value: 'Electrico' },
+      { name: 'Peso', value: '442 kg' },
+    ],
+  },
+};
+
+function toShortDescription(text: string): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 140) return clean;
+  const sentenceEnd = clean.indexOf('. ');
+  if (sentenceEnd > 40 && sentenceEnd < 140) return `${clean.slice(0, sentenceEnd + 1)}`;
+  return `${clean.slice(0, 137)}...`;
+}
+
+function applyOutboardCopy(products: Product[]): Product[] {
+  return products.map((product) => {
+    if (product.category.parentCategory !== 'marino' || product.category.slug !== 'motores-fuera-de-borda') return product;
+
+    const detail = OUTBOARD_RICH_DETAILS[product.slug];
+    if (detail) {
+      const displacement = detail.specs.find((spec) => spec.name === 'Desplazamiento')?.value;
+      const power = detail.specs.find((spec) => spec.name === 'Potencia de salida')?.value;
+      const weight = detail.specs.find((spec) => spec.name === 'Peso')?.value;
+
+      return {
+        ...product,
+        tagline: detail.tagline,
+        shortDescription: detail.summary,
+        description: detail.description,
+        keySpecs: [
+          { icon: 'engine', value: displacement ?? 'Consultar', label: 'Desplazamiento' },
+          { icon: 'power', value: power ?? 'Consultar', label: 'Potencia' },
+          { icon: 'weight', value: weight ?? 'Consultar', label: 'Peso' },
+        ],
+        fullSpecs: [{ group: 'Especificaciones', specs: detail.specs }],
+        priceNote: OUTBOARD_LEGAL_NOTE,
+      };
+    }
+
+    const copy = OUTBOARD_PRODUCT_COPY[product.slug];
+    if (!copy) return product;
+
+    const looksGeneric = !product.description || product.description.startsWith('Motor fuera de borda Yamaha');
+
+    return {
+      ...product,
+      shortDescription: toShortDescription(copy),
+      description: looksGeneric ? copy : product.description,
+      priceNote: product.priceNote ?? OUTBOARD_LEGAL_NOTE,
+    };
+  });
+}
+
+type SanityImage = {
+  alt?: unknown;
+  asset?: {
+    url?: unknown;
+    metadata?: { dimensions?: { width?: unknown; height?: unknown } };
+  };
+};
+
+type SanityProduct = {
+  _id?: unknown;
+  _updatedAt?: unknown;
+  name?: unknown;
+  slug?: unknown;
+  year?: unknown;
+  productType?: unknown;
+  price?: unknown;
+  salePrice?: unknown;
+  currency?: unknown;
+  formattedPrice?: unknown;
+  tags?: unknown;
+  tagline?: unknown;
+  shortDescription?: unknown;
+  description?: unknown;
+  keySpecs?: unknown;
+  fullSpecs?: unknown;
+  benefits?: unknown;
+  financing?: unknown;
+  status?: unknown;
+  featured?: unknown;
+  sortOrder?: unknown;
+  priceNote?: unknown;
+  category?: {
+    name?: unknown;
+    slug?: unknown;
+    parentCategory?: unknown;
+  };
+  heroImage?: SanityImage;
+  images?: unknown;
+};
+
+let sanityProductsCache: Promise<Product[] | null> | null = null;
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function mapSanityImage(image: SanityImage | undefined, fallbackAlt: string) {
+  const url = asString(image?.asset?.url);
+  if (!url) return null;
+  return {
+    url,
+    alt: asString(image?.alt, fallbackAlt),
+    width: asNumber(image?.asset?.metadata?.dimensions?.width, 800),
+    height: asNumber(image?.asset?.metadata?.dimensions?.height, 600),
+  };
+}
+
+function normalizeParentCategory(value: unknown): Product['category']['parentCategory'] {
+  if (value === 'motos' || value === 'cuadraciclos' || value === 'marino') return value;
+  return 'motos';
+}
+
+function normalizeProductType(value: unknown, parentCategory: Product['category']['parentCategory']): Product['productType'] {
+  if (value === 'moto' || value === 'cuadraciclo' || value === 'waverunner' || value === 'motor_fuera_borda') return value;
+  if (parentCategory === 'cuadraciclos') return 'cuadraciclo';
+  if (parentCategory === 'marino') return 'motor_fuera_borda';
+  return 'moto';
+}
+
+function normalizeStatus(value: unknown): Product['status'] {
+  if (value === 'active' || value === 'coming_soon' || value === 'discontinued') return value;
+  return 'active';
+}
+
+function normalizeSanityProduct(raw: SanityProduct): Product | null {
+  const name = asString(raw.name);
+  const slug = asString(raw.slug);
+  const categoryName = asString(raw.category?.name);
+  const categorySlug = asString(raw.category?.slug);
+
+  if (!name || !slug || !categoryName || !categorySlug) return null;
+
+  const localGalleryImages = getGalleryImages(name, slug);
+  const fallbackImage = localGalleryImages?.[0] ?? img(name, slug);
+  const imagesFromSanity = Array.isArray(raw.images)
+    ? raw.images
+        .map((image, index) => mapSanityImage(image as SanityImage, `Yamaha ${name} — foto ${index + 1}`))
+        .filter((image): image is NonNullable<ReturnType<typeof mapSanityImage>> => image !== null)
+    : [];
+
+  const heroImage =
+    localGalleryImages?.[0] ?? imagesFromSanity[0] ?? mapSanityImage(raw.heroImage, `Yamaha ${name}`) ?? fallbackImage;
+  const images = localGalleryImages ?? (imagesFromSanity.length > 0 ? imagesFromSanity : [heroImage]);
+
+  const parentCategory = normalizeParentCategory(raw.category?.parentCategory);
+  const price = asNumber(raw.price, 0);
+  const currency = asString(raw.currency, 'CRC') as Product['currency'];
+
+  return {
+    _id: asString(raw._id, slug),
+    _updatedAt: asString(raw._updatedAt, new Date().toISOString()),
+    name,
+    slug,
+    year: asNumber(raw.year, new Date().getFullYear()),
+    category: {
+      name: categoryName,
+      slug: categorySlug,
+      parentCategory,
+    },
+    productType: normalizeProductType(raw.productType, parentCategory),
+    price,
+    salePrice: typeof raw.salePrice === 'number' ? raw.salePrice : undefined,
+    currency,
+    formattedPrice: asString(raw.formattedPrice, price.toLocaleString('es-CR', { style: 'currency', currency })),
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
+    tagline: asString(raw.tagline) || undefined,
+    images,
+    heroImage,
+    shortDescription: asString(raw.shortDescription, ''),
+    description: asString(raw.description) || undefined,
+    keySpecs: Array.isArray(raw.keySpecs) ? (raw.keySpecs as Product['keySpecs']) : [],
+    fullSpecs: Array.isArray(raw.fullSpecs) ? (raw.fullSpecs as Product['fullSpecs']) : [],
+    benefits: Array.isArray(raw.benefits) ? (raw.benefits as Product['benefits']) : [],
+    financing:
+      raw.financing && typeof raw.financing === 'object'
+        ? ({
+            eligible: Boolean((raw.financing as Product['financing']).eligible),
+            defaultDownPayment: asNumber((raw.financing as Product['financing']).defaultDownPayment, 20),
+            defaultTerm: asNumber((raw.financing as Product['financing']).defaultTerm, 60),
+            monthlyPayment:
+              typeof (raw.financing as Product['financing']).monthlyPayment === 'number'
+                ? (raw.financing as Product['financing']).monthlyPayment
+                : undefined,
+            termMonths:
+              typeof (raw.financing as Product['financing']).termMonths === 'number'
+                ? (raw.financing as Product['financing']).termMonths
+                : undefined,
+          } satisfies Product['financing'])
+        : { eligible: false, defaultDownPayment: 20, defaultTerm: 60 },
+    relatedProducts: undefined,
+    status: normalizeStatus(raw.status),
+    featured: Boolean(raw.featured),
+    sortOrder: asNumber(raw.sortOrder, 9999),
+    priceNote: asString(raw.priceNote) || undefined,
+  };
+}
+
+async function fetchSanityProducts(): Promise<Product[] | null> {
+  if (!SANITY_ENABLED) return null;
+
+  try {
+    const result = await sanityFetch<SanityProduct[]>(SANITY_PRODUCTS_QUERY);
+    const normalized = result.map(normalizeSanityProduct).filter((product): product is Product => product !== null);
+    return normalized.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getProductsDataSource(): Promise<Product[]> {
+  if (!SANITY_ENABLED) return applyOutboardCopy(PRODUCTS);
+  if (!sanityProductsCache) sanityProductsCache = fetchSanityProducts();
+
+  const sanityProducts = await sanityProductsCache;
+  return applyOutboardCopy(sanityProducts ?? PRODUCTS);
+}
+
 export async function getProduct(slug: string): Promise<Product | null> {
-  return PRODUCTS.find((p) => p.slug === slug) || null;
+  const products = await getProductsDataSource();
+  return products.find((p) => p.slug === slug) || null;
 }
 
 export async function getAllProducts(): Promise<Product[]> {
-  return PRODUCTS;
+  return getProductsDataSource();
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
-  return PRODUCTS.filter((p) => p.featured);
+  const products = await getProductsDataSource();
+  return products.filter((p) => p.featured);
 }
 
 export async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
@@ -2516,12 +5000,14 @@ export async function getRelatedProducts(categorySlug: string, excludeId: string
 }
 
 export async function getAllCategories() {
-  const categories = [...new Map(PRODUCTS.map((p) => [p.category.slug, p.category])).values()];
+  const products = await getProductsDataSource();
+  const categories = [...new Map(products.map((p) => [p.category.slug, p.category])).values()];
   return categories;
 }
 
 export async function getProductCards(): Promise<ProductCard[]> {
-  return PRODUCTS.map(({ _id, name, slug, category, price, salePrice, currency, heroImage, keySpecs, tags, status }) => ({
+  const products = await getProductsDataSource();
+  return products.map(({ _id, name, slug, category, price, salePrice, currency, heroImage, keySpecs, tags, status }) => ({
     _id,
     name,
     slug,

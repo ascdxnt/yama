@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { FilterableProductGrid } from '@/components/blocks';
+import { getAllProducts } from '@/lib/sanity/queries';
 export const metadata: Metadata = {
   title: 'Motos',
   description: 'Explorá toda la línea de motos Yamaha disponibles en Costa Rica. Scooter, urbanas, montañero, alta cilindrada, motocross y enduro.',
@@ -45,7 +47,9 @@ const CATEGORY_CARDS = [
   },
 ];
 
-export default function MotosPage() {
+export default async function MotosPage() {
+  const products = await getAllProducts();
+  const motos = products.filter((product) => product.category.parentCategory === 'motos');
 
   return (
     <>
@@ -127,6 +131,20 @@ export default function MotosPage() {
           ))}
         </div>
       </section>
+
+      {motos.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
+          <div className="mb-8">
+            <span className="inline-block rounded-full bg-primary-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-500">
+              Catálogo
+            </span>
+            <h2 className="mt-3 text-[clamp(1.75rem,3vw,2.25rem)] font-extrabold tracking-tight text-text-primary">
+              Filtrá todos los modelos
+            </h2>
+          </div>
+          <FilterableProductGrid products={motos} columns={3} allowCategoryFilter />
+        </section>
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ProductGrid } from '@/components/blocks';
+import { FilterableProductGrid } from '@/components/blocks';
 import { getAllProducts } from '@/lib/sanity/queries';
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default async function CuadraciclosPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         {cuadraciclos.length > 0 ? (
-          <ProductGrid products={cuadraciclos} columns={3} />
+          <FilterableProductGrid products={cuadraciclos} columns={3} />
         ) : (
           <div className="rounded-2xl border border-surface-subtle bg-surface-ghost p-8 text-center">
             <p className="text-lg font-semibold text-text-secondary">Próximamente</p>

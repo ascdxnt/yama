@@ -228,11 +228,18 @@ export default function ContactoPage() {
                   src={DEALERSHIP.mapsEmbedUrl}
                   width="100%"
                   height="100%"
-                  style={{ border: 0, position: 'absolute', inset: 0 }}
+                  style={{ border: 0, position: 'absolute', inset: 0, pointerEvents: 'none' }}
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   title="Ubicación Yamaha Costa Rica"
+                />
+                <a
+                  href={DEALERSHIP.directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Abrir ubicación en Google Maps"
+                  className="absolute inset-0"
                 />
               </div>
             </div>

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Reveal } from '@/components/patterns/reveal';
 
+const BACKGROUND_IMAGE_URL = '/hero/backgrounds/hero-bg.avif';
 const FLYERS = [
   '/hero/flyers/flyer-1.avif',
   '/hero/flyers/flyer-2.avif',
@@ -44,8 +45,28 @@ export function HeroSection() {
   }, [flyerCount, next]);
 
   return (
-    <section className="noise-overlay relative overflow-hidden bg-primary-900">
+    <section id="home-hero" className="noise-overlay relative overflow-hidden bg-primary-900">
       <div className="absolute inset-0 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700" />
+
+      <div className="absolute inset-0 hidden lg:block">
+        <div
+          className="absolute inset-y-0 right-0 w-[70%] bg-cover bg-center"
+          style={{
+            backgroundImage: `url('${BACKGROUND_IMAGE_URL}')`,
+            clipPath: 'polygon(30% 0, 100% 0, 100% 100%, 22% 100%)',
+          }}
+        />
+        <div className="absolute inset-y-0 right-0 w-[70%] bg-[linear-gradient(110deg,rgba(3,18,46,0.34)_0%,rgba(3,23,58,0.16)_38%,rgba(3,17,42,0.3)_100%)] [clip-path:polygon(30%_0,100%_0,100%_100%,22%_100%)]" />
+      </div>
+
+      <div className="absolute inset-0 lg:hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `linear-gradient(140deg, rgba(3,15,42,0.78) 0%, rgba(3,17,45,0.46) 48%, rgba(3,14,36,0.72) 100%), url('${BACKGROUND_IMAGE_URL}')`,
+          }}
+        />
+      </div>
 
       <div
         className="absolute -left-[15%] -top-[10%] h-[70vh] w-[70vh] rounded-full opacity-25 blur-[120px]"
@@ -59,19 +80,16 @@ export function HeroSection() {
       />
 
       <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-2 lg:gap-10 lg:px-8 lg:py-28">
-        <Reveal>
-          <span className="inline-block rounded-full bg-secondary-500/15 px-3 py-1 text-[11px] font-semibold tracking-[0.15em] text-secondary-300">
+        <Reveal className="lg:order-1 lg:justify-self-start lg:-translate-x-8">
+          <span className="inline-block rounded-full bg-secondary-400/16 px-3 py-1 text-[11px] font-semibold tracking-[0.15em] text-secondary-100 [text-shadow:0_4px_18px_rgba(0,0,0,0.5)]">
             Distribuidor autorizado Yamaha
           </span>
 
-          <h1 className="mt-6 max-w-[16ch] text-[clamp(2.5rem,5vw,4.7rem)] font-extrabold leading-[1.03] tracking-[-0.03em] text-white">
-            La experiencia Yamaha{' '}
-            <span className="bg-gradient-to-r from-[#002b7f] via-[#ffffff] to-[#ce1126] bg-clip-text text-transparent">
-              en Costa Rica
-            </span>
+          <h1 className="mt-6 max-w-[16ch] text-[clamp(2.5rem,5vw,4.7rem)] font-extrabold leading-[1.03] tracking-[-0.03em] text-white [text-shadow:0_8px_30px_rgba(0,0,0,0.72)]">
+            La experiencia Yamaha <span className="text-secondary-100">en Costa Rica</span>
           </h1>
 
-          <p className="mt-6 max-w-[50ch] text-base leading-relaxed text-primary-200 sm:text-lg">
+          <p className="mt-6 max-w-[50ch] text-base leading-relaxed text-white/92 [text-shadow:0_6px_22px_rgba(0,0,0,0.65)] sm:text-lg">
             Motos, cuadraciclos y productos marinos. Financiamiento disponible, servicio
             t&eacute;cnico autorizado y repuestos originales.
           </p>
@@ -91,17 +109,17 @@ export function HeroSection() {
 
             <Link
               href="/cotizador"
-              className="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-3.5 text-base font-semibold text-white transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/40 hover:bg-white/10 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/10 px-7 py-3.5 text-base font-semibold text-white transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/60 hover:bg-white/18 active:scale-[0.98]"
             >
               Cotizar ahora
             </Link>
           </div>
         </Reveal>
 
-        <Reveal className="hidden lg:flex lg:items-center lg:justify-end" delay={120}>
+        <Reveal className="hidden lg:order-2 lg:flex lg:items-center lg:justify-end lg:translate-x-8" delay={120}>
           {flyerCount > 0 ? (
             <div className="relative w-full">
-              <div className="relative aspect-[3/4] overflow-hidden">
+              <div className="relative aspect-[3/4] overflow-hidden drop-shadow-[0_26px_55px_rgba(0,0,0,0.42)]">
                 {FLYERS.slice(0, flyerCount).map((src, i) => (
                   <div
                     key={src}

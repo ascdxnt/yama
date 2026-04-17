@@ -1,5 +1,6 @@
 export { HeroSection } from './hero-section';
 export { ProductGrid } from './product-grid';
+export { FilterableProductGrid } from './filterable-product-grid';
 export { FinancingCalculator } from './financing-calculator';
 export { ProductBenefits } from './product-benefits';
 export { ProductHero } from './product-hero';

@@ -10,7 +10,7 @@ const leadSchema = z.object({
   phone: z.string().regex(/^[2467]\d{7}$/, 'Número de teléfono inválido'),
   email: z.union([z.string().email(), z.literal('')]).optional(),
   message: z.string().optional(),
-  source: z.enum(['product_page', 'cotizador', 'contacto', 'taller']),
+  source: z.enum(['product_page', 'cotizador', 'cotizadormarino', 'contacto', 'taller']),
   serviceType: z.string().optional(),
   location: z.string().optional(),
   cedula: z.string().optional(),

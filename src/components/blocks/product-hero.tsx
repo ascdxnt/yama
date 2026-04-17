@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn, formatPrice } from '@/lib/utils';
@@ -16,9 +16,58 @@ interface ProductHeroProps {
 
 export function ProductHero({ product }: ProductHeroProps) {
   const [activeImage, setActiveImage] = useState(0);
+  const hasGalleryNavigation = product.images.length > 1;
+
+  const goToImage = (index: number) => {
+    setActiveImage(index);
+    dataLayer.push({
+      name: 'product_gallery_interact',
+      params: { product_id: product._id, image_index: index },
+    });
+  };
+
+  const goToPreviousImage = () => {
+    if (!hasGalleryNavigation) return;
+    const previousIndex = (activeImage - 1 + product.images.length) % product.images.length;
+    goToImage(previousIndex);
+  };
+
+  const goToNextImage = () => {
+    if (!hasGalleryNavigation) return;
+    const nextIndex = (activeImage + 1) % product.images.length;
+    goToImage(nextIndex);
+  };
+
+  useEffect(() => {
+    if (!hasGalleryNavigation) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable) return;
+
+      const targetTag = target?.tagName;
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT') return;
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goToPreviousImage();
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goToNextImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeImage, hasGalleryNavigation, product.images.length]);
 
   const hasDiscount = product.salePrice != null && product.salePrice < product.price;
   const effectivePrice = hasDiscount ? product.salePrice! : product.price;
+  const hidePrice = product.category.parentCategory === 'marino' && product.category.slug === 'motores-fuera-de-borda';
 
   const monthlyEstimate = product.financing.eligible
     ? product.financing.monthlyPayment
@@ -34,6 +83,29 @@ export function ProductHero({ product }: ProductHeroProps) {
     `Hola, me interesa el modelo ${product.name}. ¿Podrían darme más información?`,
   )}`;
 
+  const sectionBasePath =
+    product.category.parentCategory === 'motos'
+      ? '/motos'
+      : product.category.parentCategory === 'cuadraciclos'
+        ? '/cuadraciclos'
+        : '/marino';
+
+  const sectionLabel =
+    product.category.parentCategory === 'motos'
+      ? 'Motos'
+      : product.category.parentCategory === 'cuadraciclos'
+        ? 'Cuadraciclos & Mulas'
+        : 'Marino';
+
+  const categoryHref = product.category.parentCategory === 'cuadraciclos' ? '/cuadraciclos' : `${sectionBasePath}/${product.category.slug}`;
+
+  const productPagePath =
+    product.category.parentCategory === 'motos'
+      ? `/motos/${product.category.slug}/${product.slug}`
+      : product.category.parentCategory === 'cuadraciclos'
+        ? `/cuadraciclos/${product.slug}`
+        : `/marino/${product.category.slug}/${product.slug}`;
+
   return (
     <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
       <nav
@@ -44,12 +116,12 @@ export function ProductHero({ product }: ProductHeroProps) {
           Inicio
         </Link>
         <span className="select-none text-text-muted/40">/</span>
-        <Link href="/motos" className="shrink-0 transition-colors-premium hover:text-secondary-500">
-          Motos
+        <Link href={sectionBasePath} className="shrink-0 transition-colors-premium hover:text-secondary-500">
+          {sectionLabel}
         </Link>
         <span className="select-none text-text-muted/40">/</span>
         <Link
-          href={`/motos/${product.category.slug}`}
+          href={categoryHref}
           className="min-w-0 max-w-full break-words transition-colors-premium hover:text-secondary-500"
         >
           {product.category.name}
@@ -75,21 +147,40 @@ export function ProductHero({ product }: ProductHeroProps) {
                   Oferta
                 </span>
               )}
+
+              {hasGalleryNavigation && (
+                <>
+                  <button
+                    type="button"
+                    onClick={goToPreviousImage}
+                    aria-label="Imagen anterior"
+                    className="absolute left-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-text-primary shadow-md ring-1 ring-black/10 transition-premium-fast hover:bg-white sm:left-3 sm:h-10 sm:w-10"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToNextImage}
+                    aria-label="Siguiente imagen"
+                    className="absolute right-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-text-primary shadow-md ring-1 ring-black/10 transition-premium-fast hover:bg-white sm:right-3 sm:h-10 sm:w-10"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M7.5 4.5L13 10l-5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {product.images.length > 1 && (
+          {hasGalleryNavigation && (
             <div className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0.5 [&::-webkit-scrollbar]:hidden">
               {product.images.map((img, i) => (
                 <button
                   key={i}
-                  onClick={() => {
-                    setActiveImage(i);
-                    dataLayer.push({
-                      name: 'product_gallery_interact',
-                      params: { product_id: product._id, image_index: i },
-                    });
-                  }}
+                  onClick={() => goToImage(i)}
                   className={cn(
                     'relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl transition-premium-fast',
                     i === activeImage
@@ -117,6 +208,18 @@ export function ProductHero({ product }: ProductHeroProps) {
             <p className="mt-2 min-w-0 break-words text-sm font-medium text-secondary-500">{product.tagline}</p>
           )}
 
+          {product.shortDescription && (
+            <p className="mt-3 min-w-0 max-w-2xl break-words text-[15px] leading-relaxed text-text-secondary">
+              {product.shortDescription}
+            </p>
+          )}
+
+          {product.description && product.description !== product.shortDescription && (
+            <p className="mt-2 min-w-0 max-w-2xl break-words text-sm leading-relaxed text-text-muted">
+              {product.description}
+            </p>
+          )}
+
           {product.tags && product.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {product.tags.map((tag) => (
@@ -131,7 +234,12 @@ export function ProductHero({ product }: ProductHeroProps) {
           )}
 
           <div className="mt-6">
-            {hasDiscount ? (
+            {hidePrice ? (
+              <>
+                <p className="min-w-0 break-words text-[clamp(1.35rem,6vw,2.25rem)] font-extrabold text-text-primary">Consultar precio</p>
+                <p className="mt-1 text-[13px] text-text-muted">Precio en punto de venta</p>
+              </>
+            ) : hasDiscount ? (
               <>
                 <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
                   <p className="min-w-0 break-words text-[clamp(1.35rem,6vw,2.25rem)] font-extrabold tabular-nums text-red-600">
@@ -155,7 +263,7 @@ export function ProductHero({ product }: ProductHeroProps) {
             )}
           </div>
 
-          {monthlyEstimate && (
+          {!hidePrice && monthlyEstimate && (
             <div className="mt-4 inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-full bg-secondary-500/10 px-3 py-2 sm:px-4">
               <span className="text-sm font-bold tabular-nums text-secondary-600">
                 Desde {formatPrice(monthlyEstimate, product.currency)}/mes
@@ -189,7 +297,7 @@ export function ProductHero({ product }: ProductHeroProps) {
                   name: 'whatsapp_click',
                   params: {
                     product_id: product._id,
-                    page: `/motos/${product.category.slug}/${product.slug}`,
+                    page: productPagePath,
                     position: 'hero',
                   },
                 });

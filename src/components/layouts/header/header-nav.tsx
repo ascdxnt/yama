@@ -8,6 +8,12 @@ import { cn } from '@/lib/utils';
 import { NAV_ITEMS, CATEGORIES, CONTACT } from '@/lib/constants';
 import { useUIStore } from '@/stores/ui-store';
 
+function getSubcategoryHref(baseHref: string, categoryKey: string, sub: { slug: string; href?: string }) {
+  if (sub.href) return sub.href;
+  if (categoryKey === 'marino') return `/marino/${sub.slug}`;
+  return `${baseHref}/${sub.slug}`;
+}
+
 export function HeaderNav() {
   const pathname = usePathname();
   const { activeMegaMenu, setActiveMegaMenu, mobileMenuOpen, setMobileMenuOpen, closeAll } = useUIStore();
@@ -85,7 +91,7 @@ export function HeaderNav() {
 
   return (
     <>
-      <nav className="hidden lg:flex lg:items-center lg:gap-1" ref={menuRef}>
+      <nav className="hidden lg:flex lg:items-center lg:justify-center lg:gap-0.5" ref={menuRef}>
         {NAV_ITEMS.map((item) => (
           <div
             key={item.href}
@@ -96,15 +102,18 @@ export function HeaderNav() {
             <Link
               href={item.href}
               className={cn(
-                'relative inline-flex items-center rounded-full px-3 py-2 text-sm font-medium transition-colors-premium',
+                'relative inline-flex items-center rounded-full px-2.5 py-2 text-sm font-semibold transition-colors-premium',
                 pathname.startsWith(item.href)
-                  ? 'bg-secondary-500/[0.08] text-secondary-600'
-                  : 'text-text-secondary hover:bg-surface-ghost hover:text-text-primary'
+                  ? 'bg-primary-500/[0.10] text-primary-700'
+                  : 'text-[#4b5563] hover:bg-slate-100 hover:text-[#0f172a]'
               )}
             >
               {item.label}
               {pathname.startsWith(item.href) && (
-                <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-secondary-500" />
+                <span
+                  className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full"
+                  style={{ background: '#003e95' }}
+                />
               )}
               {item.hasMegaMenu && (
                   <svg
@@ -134,7 +143,7 @@ export function HeaderNav() {
                       {CATEGORIES[item.key as keyof typeof CATEGORIES]?.subcategories.map((sub) => (
                         <Link
                           key={sub.slug}
-                          href={item.key === 'marino' ? `/marino/${sub.slug}` : `${item.href}/${sub.slug}`}
+                          href={getSubcategoryHref(item.href, item.key, sub)}
                           className="group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-text-primary transition-colors-premium hover:bg-surface-ghost hover:text-secondary-500"
                           onClick={() => setActiveMegaMenu(null)}
                         >
@@ -320,7 +329,7 @@ function MobileNavItem({
           {category.subcategories.map((sub) => (
             <Link
               key={sub.slug}
-              href={categoryKey === 'marino' ? `/marino/${sub.slug}` : `${href}/${sub.slug}`}
+              href={getSubcategoryHref(href, categoryKey, sub)}
               onClick={onNavigate}
               className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-text-secondary transition-colors-premium hover:bg-secondary-500/[0.06] hover:text-secondary-500"
             >
