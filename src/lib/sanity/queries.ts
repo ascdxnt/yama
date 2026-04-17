@@ -22,13 +22,25 @@ const PRODUCT_IMAGE_FOLDER_OVERRIDES: Record<string, string> = {
   'wolverine-x4-1000-xtr': 'products/cuadraciclos/mulas/wolverine-x4-1000-xtr',
 };
 
-const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
-  'fx-cruiser-svho': '/categories/marino/waverunner/cover.avif',
-  'vx1050-c': '/categories/marino/waverunner/cover.avif',
+const PRODUCT_IMAGE_FALLBACKS: Record<string, string[]> = {
+  'fx-cruiser-svho': ['/categories/marino/waverunner/cover.avif', '/categories/home/waverunner/cover.avif'],
+  'vx1050-c': ['/categories/home/waverunner/cover.avif', '/categories/marino/waverunner/cover.avif'],
 };
 
 const IMAGE_EXTENSIONS = ['avif', 'webp', 'png', 'jpg', 'jpeg'] as const;
 const PUBLIC_ROOT = path.join(process.cwd(), 'public');
+
+function resolveLocalFallbackImage(slug: string): string | null {
+  const candidates = PRODUCT_IMAGE_FALLBACKS[slug];
+  if (!candidates || candidates.length === 0) return null;
+
+  for (const candidate of candidates) {
+    const absolute = path.join(PUBLIC_ROOT, candidate.replace(/^\//, ''));
+    if (fs.existsSync(absolute)) return candidate;
+  }
+
+  return candidates[0] ?? null;
+}
 
 function hasGalleryOne(dirAbsolute: string): boolean {
   return IMAGE_EXTENSIONS.some((ext) => fs.existsSync(path.join(dirAbsolute, `gallery-1.${ext}`)));
@@ -141,7 +153,7 @@ function img(model: string, slug: string) {
     };
   }
 
-  const fallbackBySlug = PRODUCT_IMAGE_FALLBACKS[slug];
+  const fallbackBySlug = resolveLocalFallbackImage(slug);
   if (fallbackBySlug) {
     return {
       url: fallbackBySlug,
