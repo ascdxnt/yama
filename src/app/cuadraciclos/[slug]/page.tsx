@@ -4,7 +4,7 @@ import { ProductHero, FinancingCalculator, ProductBenefits, FullSpecs, RelatedPr
 import { StickyCtaBar } from '@/components/patterns/sticky-cta-bar';
 import { ProductJsonLd } from '@/components/seo/product-json-ld';
 import { BreadcrumbJsonLd } from '@/components/seo/breadcrumb-json-ld';
-import { getProduct, getRelatedProducts } from '@/lib/sanity/queries';
+import { getProduct, getRelatedProducts } from '@/lib/data/queries';
 import { WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPrice } from '@/lib/utils';
 

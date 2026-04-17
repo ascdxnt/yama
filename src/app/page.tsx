@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { HeroSection, CategoryShowcase, ProductGrid } from '@/components/blocks';
-import { getFeaturedProducts } from '@/lib/sanity/queries';
+import { getFeaturedProducts } from '@/lib/data/queries';
 import { CONTACT } from '@/lib/constants';
 import { Reveal } from '@/components/patterns/reveal';
 

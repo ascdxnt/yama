@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FilterableProductGrid } from '@/components/blocks';
 import { BreadcrumbJsonLd } from '@/components/seo/breadcrumb-json-ld';
-import { getProductsByCategory } from '@/lib/sanity/queries';
+import { getProductsByCategory } from '@/lib/data/queries';
 
 const MARINO_CATEGORY_MAP = {
   waverunner: { label: 'Waverunner' },

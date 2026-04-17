@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getAllProducts, getAllCategories } from '@/lib/sanity/queries';
+import { getAllProducts, getAllCategories } from '@/lib/data/queries';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://yamahacr.com';
 

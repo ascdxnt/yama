@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import fs from 'node:fs';
 import path from 'node:path';
 import Image from 'next/image';
-import { getAllProducts } from '@/lib/sanity/queries';
+import { getAllProducts } from '@/lib/data/queries';
 import { buildCotizadorModelEntries } from '@/lib/cotizador-form-options';
 import { CotizadorForm } from './cotizador-form';
 

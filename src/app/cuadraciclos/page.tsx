@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { FilterableProductGrid } from '@/components/blocks';
-import { getAllProducts } from '@/lib/sanity/queries';
+import { getAllProducts } from '@/lib/data/queries';
 
 export const metadata: Metadata = {
   title: 'Cuadraciclos & Mulas',
