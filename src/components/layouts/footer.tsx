@@ -169,6 +169,17 @@ export function Footer() {
             <p className="text-xs text-primary-400/80">
               Distribuidor autorizado Yamaha Motor Co., Ltd.
             </p>
+            <p className="text-xs text-primary-400/80">
+              Powered by{' '}
+              <a
+                href="https://www.tridnio.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-200 transition-colors-premium hover:text-white"
+              >
+                Tridnio
+              </a>
+            </p>
           </div>
         </Reveal>
       </div>
